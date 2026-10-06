@@ -781,6 +781,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Relay fallback delay in seconds", "Retardo antes de usar el relé en segundos"),
         ("relay-fallback-delay-tip", "Cuánto tiempo espera una conexión de relé ya establecida a la conexión directa WebRTC antes de usarse en su lugar. Auméntelo para dar más tiempo a una conexión directa lenta; redúzcalo para recurrir antes al relé en redes donde no es posible una conexión directa. Déjelo vacío para el valor predeterminado de 2.5 segundos."),
         ("To start a voice call, enable \"Audio capture\" on the \"Share screen\" page.", "Para comenzar una llamada de voz activar \"Captura de audio\" en la página \"Compartir pantalla\"."),
+<<<<<<< HEAD
         ("Keyboard shortcuts", "Atajos de teclado"),
         ("Configure shortcuts...", "Configurar atajos..."),
         ("Enable keyboard shortcuts in remote session", "Habilitar atajos de teclado en la sesión remota"),
@@ -826,5 +827,21 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("install-directory-not-empty-tip", "La carpeta seleccionada no está vacía. La instalación puede eliminar los datos existentes. Considera elegir otra carpeta."),
         ("Request approval", "Solicitar aprobación"),
         ("Forever", "Para siempre"),
+=======
+        ("MCP server", ""),
+        ("Enable MCP server", ""),
+        ("Let agents connect and take control without asking", ""),
+        ("Running", ""),
+        ("Starting...", ""),
+        ("Copy MCP client config", ""),
+        ("Regenerate token", ""),
+        ("MCP connection request", ""),
+        ("An MCP client wants to control {}. Allow?", ""),
+        ("Agent control request", ""),
+        ("An AI agent asks to take exclusive control of {}. Your input is blocked until you take over again.", ""),
+        ("AI agent is in control", ""),
+        ("Take over", ""),
+        ("mcp-server-tip", "")
+>>>>>>> be9011d93 (feat(flutter): built-in MCP server so AI agents can control remote sessions)
     ].iter().cloned().collect();
 }

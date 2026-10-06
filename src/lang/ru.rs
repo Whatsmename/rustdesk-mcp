@@ -781,6 +781,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Relay fallback delay in seconds", "Задержка перед переходом на ретранслятор в секундах"),
         ("relay-fallback-delay-tip", "Сколько времени уже установленное соединение через ретранслятор ждёт прямое соединение WebRTC, прежде чем будет использовано вместо него. Увеличьте, чтобы дать медленному прямому соединению больше времени; уменьшите, чтобы быстрее переходить на ретранслятор в сетях, где прямое соединение невозможно. Оставьте пустым для значения по умолчанию 2.5 секунды."),
         ("To start a voice call, enable \"Audio capture\" on the \"Share screen\" page.", "Чтобы начать голосовой вызов, включите \"Захват аудио\" на странице \"Демонстрация экрана\"."),
+<<<<<<< HEAD
         ("Keyboard shortcuts", "Сочетания клавиш"),
         ("Configure shortcuts...", "Настроить сочетания клавиш..."),
         ("Enable keyboard shortcuts in remote session", "Использовать сочетания клавиш в удалённом сеансе"),
@@ -826,5 +827,21 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("install-directory-not-empty-tip", "Выбранная папка не пуста. При установке существующие данные могут быть удалены. Рекомендуется выбрать другую папку."),
         ("Request approval", "Запросить одобрение"),
         ("Forever", "Навсегда"),
+=======
+        ("MCP server", ""),
+        ("Enable MCP server", ""),
+        ("Let agents connect and take control without asking", ""),
+        ("Running", ""),
+        ("Starting...", ""),
+        ("Copy MCP client config", ""),
+        ("Regenerate token", ""),
+        ("MCP connection request", ""),
+        ("An MCP client wants to control {}. Allow?", ""),
+        ("Agent control request", ""),
+        ("An AI agent asks to take exclusive control of {}. Your input is blocked until you take over again.", ""),
+        ("AI agent is in control", ""),
+        ("Take over", ""),
+        ("mcp-server-tip", "")
+>>>>>>> be9011d93 (feat(flutter): built-in MCP server so AI agents can control remote sessions)
     ].iter().cloned().collect();
 }

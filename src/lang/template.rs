@@ -781,6 +781,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Relay fallback delay in seconds", ""),
         ("relay-fallback-delay-tip", ""),
         ("To start a voice call, enable \"Audio capture\" on the \"Share screen\" page.", ""),
+<<<<<<< HEAD
         ("Keyboard shortcuts", ""),
         ("Configure shortcuts...", ""),
         ("Enable keyboard shortcuts in remote session", ""),
@@ -826,5 +827,21 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("install-directory-not-empty-tip", ""),
         ("Request approval", ""),
         ("Forever", ""),
+=======
+        ("MCP server", ""),
+        ("Enable MCP server", ""),
+        ("Let agents connect and take control without asking", ""),
+        ("Running", ""),
+        ("Starting...", ""),
+        ("Copy MCP client config", ""),
+        ("Regenerate token", ""),
+        ("MCP connection request", ""),
+        ("An MCP client wants to control {}. Allow?", ""),
+        ("Agent control request", ""),
+        ("An AI agent asks to take exclusive control of {}. Your input is blocked until you take over again.", ""),
+        ("AI agent is in control", ""),
+        ("Take over", ""),
+        ("mcp-server-tip", "")
+>>>>>>> be9011d93 (feat(flutter): built-in MCP server so AI agents can control remote sessions)
     ].iter().cloned().collect();
 }

@@ -780,6 +780,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("RustDesk could not load a GStreamer component needed for screen capture ({})", "RustDesk は画面キャプチャに必要な GStreamer コンポーネントを読み込めませんでした ({})"),
         ("Relay fallback delay in seconds", "中継に切り替えるまでの待ち時間 (秒)"),
         ("relay-fallback-delay-tip", "すでに確立された中継接続が、直接の WebRTC 接続をどれだけ待ってから代わりに使用されるかを指定します。値を大きくすると遅い直接接続に時間を与えられ、小さくすると直接接続できないネットワークで早く中継に切り替わります。空欄にすると既定値の 2.5 秒になります。"),
+<<<<<<< HEAD
         ("To start a voice call, enable \"Audio capture\" on the \"Share screen\" page.", "音声通話を開始するには、「画面を共有」ページで「オーディオをキャプチャ」を有効にしてください。"),
         ("Keyboard shortcuts", "キーボードショートカット"),
         ("Configure shortcuts...", "ショートカットを設定..."),
@@ -826,5 +827,22 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("install-directory-not-empty-tip", "選択したフォルダーは空ではありません。インストールにより既存のデータが削除される可能性があります。別のフォルダーを選択することをおすすめします。"),
         ("Request approval", "承認を要求"),
         ("Forever", "無期限"),
+=======
+        ("To start a voice call, enable \"Audio capture\" on the \"Share screen\" page.", ""),
+        ("MCP server", ""),
+        ("Enable MCP server", ""),
+        ("Let agents connect and take control without asking", ""),
+        ("Running", ""),
+        ("Starting...", ""),
+        ("Copy MCP client config", ""),
+        ("Regenerate token", ""),
+        ("MCP connection request", ""),
+        ("An MCP client wants to control {}. Allow?", ""),
+        ("Agent control request", ""),
+        ("An AI agent asks to take exclusive control of {}. Your input is blocked until you take over again.", ""),
+        ("AI agent is in control", ""),
+        ("Take over", ""),
+        ("mcp-server-tip", "")
+>>>>>>> be9011d93 (feat(flutter): built-in MCP server so AI agents can control remote sessions)
     ].iter().cloned().collect();
 }

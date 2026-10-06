@@ -781,6 +781,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Relay fallback delay in seconds", "Tardu prima de impreare su relè in segundos"),
         ("relay-fallback-delay-tip", "Cantu tempus una connessione de relè giai istabilida abetat sa connessione direta WebRTC prima de èssere impreada in su postu suo. Aumenta pro dare prus tempus a una connessione direta lenta; diminuì pro colare prima a su relè in sas retes in ue non si podet fàghere una connessione direta. Lassa bòidu pro su valore predefinidu de 2.5 segundos."),
         ("To start a voice call, enable \"Audio capture\" on the \"Share screen\" page.", "Pro aviare una mutida de boghe, ativa in sa pàgina \"Cumpartzi ischermu\" s’elementu \"Catura de s’àudio\"."),
+<<<<<<< HEAD
         ("Keyboard shortcuts", "Curtzadòrgios de tecladu"),
         ("Configure shortcuts...", "Cunfigura sos curtzadòrgios..."),
         ("Enable keyboard shortcuts in remote session", "Abìlita sos curtzadòrgios de tecladu in sa sessione remota"),
@@ -826,5 +827,21 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("install-directory-not-empty-tip", "Sa cartella seletzionada non est bòida. S'installatzione diat pòdere iscantzellare sos datos chi bi sunt. Ti cussigiamus de isseberare un'àtera cartella."),
         ("Request approval", "Pedi s'aprovatzione"),
         ("Forever", "Pro semper"),
+=======
+        ("MCP server", ""),
+        ("Enable MCP server", ""),
+        ("Let agents connect and take control without asking", ""),
+        ("Running", ""),
+        ("Starting...", ""),
+        ("Copy MCP client config", ""),
+        ("Regenerate token", ""),
+        ("MCP connection request", ""),
+        ("An MCP client wants to control {}. Allow?", ""),
+        ("Agent control request", ""),
+        ("An AI agent asks to take exclusive control of {}. Your input is blocked until you take over again.", ""),
+        ("AI agent is in control", ""),
+        ("Take over", ""),
+        ("mcp-server-tip", "")
+>>>>>>> be9011d93 (feat(flutter): built-in MCP server so AI agents can control remote sessions)
     ].iter().cloned().collect();
 }

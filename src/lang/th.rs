@@ -780,6 +780,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("RustDesk could not load a GStreamer component needed for screen capture ({})", "RustDesk ไม่สามารถโหลดส่วนประกอบ GStreamer ที่จำเป็นสำหรับการบันทึกหน้าจอได้ ({})"),
         ("Relay fallback delay in seconds", "เวลารอก่อนเปลี่ยนไปใช้รีเลย์ (วินาที)"),
         ("relay-fallback-delay-tip", "การเชื่อมต่อผ่านรีเลย์ที่สร้างไว้แล้วจะรอการเชื่อมต่อ WebRTC โดยตรงนานเท่าใดก่อนที่จะถูกใช้แทน เพิ่มค่าเพื่อให้การเชื่อมต่อโดยตรงที่ช้ามีเวลามากขึ้น ลดค่าเพื่อเปลี่ยนไปใช้รีเลย์เร็วขึ้นในเครือข่ายที่ไม่สามารถเชื่อมต่อโดยตรงได้ เว้นว่างไว้เพื่อใช้ค่าเริ่มต้น 2.5 วินาที"),
+<<<<<<< HEAD
         ("To start a voice call, enable \"Audio capture\" on the \"Share screen\" page.", "หากต้องการเริ่มการโทรด้วยเสียง ให้เปิดใช้งาน “บันทึกเสียง” ในหน้า “แชร์หน้าจอ”"),
         ("Keyboard shortcuts", "คีย์ลัด"),
         ("Configure shortcuts...", "กำหนดค่าคีย์ลัด..."),
@@ -826,5 +827,22 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("install-directory-not-empty-tip", "โฟลเดอร์ที่เลือกไม่ว่างเปล่า การติดตั้งอาจลบข้อมูลที่มีอยู่ ควรพิจารณาเลือกโฟลเดอร์อื่น"),
         ("Request approval", "ขออนุมัติ"),
         ("Forever", "ตลอดไป"),
+=======
+        ("To start a voice call, enable \"Audio capture\" on the \"Share screen\" page.", ""),
+        ("MCP server", ""),
+        ("Enable MCP server", ""),
+        ("Let agents connect and take control without asking", ""),
+        ("Running", ""),
+        ("Starting...", ""),
+        ("Copy MCP client config", ""),
+        ("Regenerate token", ""),
+        ("MCP connection request", ""),
+        ("An MCP client wants to control {}. Allow?", ""),
+        ("Agent control request", ""),
+        ("An AI agent asks to take exclusive control of {}. Your input is blocked until you take over again.", ""),
+        ("AI agent is in control", ""),
+        ("Take over", ""),
+        ("mcp-server-tip", "")
+>>>>>>> be9011d93 (feat(flutter): built-in MCP server so AI agents can control remote sessions)
     ].iter().cloned().collect();
 }

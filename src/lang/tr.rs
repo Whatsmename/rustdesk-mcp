@@ -781,6 +781,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Relay fallback delay in seconds", "Aktarıcıya geçiş gecikmesi (saniye)"),
         ("relay-fallback-delay-tip", "Zaten kurulmuş bir aktarıcı bağlantısının, onun yerine kullanılmadan önce doğrudan WebRTC bağlantısını ne kadar beklediğidir. Yavaş bir doğrudan bağlantıya daha fazla süre tanımak için artırın; doğrudan bağlantının kurulamadığı ağlarda aktarıcıya daha erken geçmek için azaltın. Varsayılan 2.5 saniye için boş bırakın."),
         ("To start a voice call, enable \"Audio capture\" on the \"Share screen\" page.", "Sesli arama başlatmak için \"Ekranı Paylaş\" sayfasındaki \"Ses yakalama\" seçeneğini açın."),
+<<<<<<< HEAD
         ("Keyboard shortcuts", "Klavye kısayolları"),
         ("Configure shortcuts...", "Kısayolları yapılandır..."),
         ("Enable keyboard shortcuts in remote session", "Uzak oturumda klavye kısayollarını etkinleştir"),
@@ -826,5 +827,21 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("install-directory-not-empty-tip", "Seçilen klasör boş değil. Kurulum mevcut verileri silebilir. Farklı bir klasör seçmeyi düşünün."),
         ("Request approval", "Onay iste"),
         ("Forever", "Sonsuza dek"),
+=======
+        ("MCP server", ""),
+        ("Enable MCP server", ""),
+        ("Let agents connect and take control without asking", ""),
+        ("Running", ""),
+        ("Starting...", ""),
+        ("Copy MCP client config", ""),
+        ("Regenerate token", ""),
+        ("MCP connection request", ""),
+        ("An MCP client wants to control {}. Allow?", ""),
+        ("Agent control request", ""),
+        ("An AI agent asks to take exclusive control of {}. Your input is blocked until you take over again.", ""),
+        ("AI agent is in control", ""),
+        ("Take over", ""),
+        ("mcp-server-tip", "")
+>>>>>>> be9011d93 (feat(flutter): built-in MCP server so AI agents can control remote sessions)
     ].iter().cloned().collect();
 }

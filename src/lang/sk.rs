@@ -780,6 +780,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("RustDesk could not load a GStreamer component needed for screen capture ({})", "RustDesk nedokázal načítať komponent GStreamera potrebný na zachytenie obrazovky ({})"),
         ("Relay fallback delay in seconds", "Oneskorenie pred prepnutím na prenos v sekundách"),
         ("relay-fallback-delay-tip", "Ako dlho už nadviazané spojenie cez prenos čaká na priame spojenie WebRTC, kým sa použije namiesto neho. Zvýšte, aby pomalé priame spojenie malo viac času; znížte, aby sa v sieťach, kde priame spojenie nie je možné, skôr prešlo na prenos. Nechajte prázdne pre predvolenú hodnotu 2.5 sekundy."),
+<<<<<<< HEAD
         ("To start a voice call, enable \"Audio capture\" on the \"Share screen\" page.", "Ak chcete začať hlasový hovor, povoľte „Snímanie zvuku“ na stránke „Zdielať obrazovku“."),
         ("Keyboard shortcuts", "Klávesové skratky"),
         ("Configure shortcuts...", "Nastaviť skratky..."),
@@ -826,5 +827,22 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("install-directory-not-empty-tip", "Vybraný priečinok nie je prázdny. Inštalácia môže odstrániť existujúce údaje. Zvážte výber iného priečinka."),
         ("Request approval", "Požiadať o schválenie"),
         ("Forever", "Navždy"),
+=======
+        ("To start a voice call, enable \"Audio capture\" on the \"Share screen\" page.", ""),
+        ("MCP server", ""),
+        ("Enable MCP server", ""),
+        ("Let agents connect and take control without asking", ""),
+        ("Running", ""),
+        ("Starting...", ""),
+        ("Copy MCP client config", ""),
+        ("Regenerate token", ""),
+        ("MCP connection request", ""),
+        ("An MCP client wants to control {}. Allow?", ""),
+        ("Agent control request", ""),
+        ("An AI agent asks to take exclusive control of {}. Your input is blocked until you take over again.", ""),
+        ("AI agent is in control", ""),
+        ("Take over", ""),
+        ("mcp-server-tip", "")
+>>>>>>> be9011d93 (feat(flutter): built-in MCP server so AI agents can control remote sessions)
     ].iter().cloned().collect();
 }

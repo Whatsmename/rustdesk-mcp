@@ -781,6 +781,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Relay fallback delay in seconds", "回落到中继前的等待时间（秒）"),
         ("relay-fallback-delay-tip", "已经建立的中继连接会等待直连的 WebRTC 多久，超过这个时间就改用中继。调大可以让较慢的直连有更多机会胜出；调小则在无法直连的网络上更快回落到中继。留空表示使用默认值 2.5 秒。"),
         ("To start a voice call, enable \"Audio capture\" on the \"Share screen\" page.", "开始语音通话前请在\"共享屏幕\"页面启用\"音频录制\"。"),
+<<<<<<< HEAD
         ("Keyboard shortcuts", "键盘快捷键"),
         ("Configure shortcuts...", "配置快捷键..."),
         ("Enable keyboard shortcuts in remote session", "在远程会话中启用键盘快捷键"),
@@ -826,5 +827,21 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("install-directory-not-empty-tip", "所选文件夹不为空。安装可能删除现有数据。建议选择其他文件夹。"),
         ("Request approval", "请求批准"),
         ("Forever", "永久"),
+=======
+        ("MCP server", "MCP 服务器"),
+        ("Enable MCP server", "启用 MCP 服务器"),
+        ("Let agents connect and take control without asking", "允许 Agent 无需询问即可连接并接管控制"),
+        ("Running", "运行中"),
+        ("Starting...", "正在启动..."),
+        ("Copy MCP client config", "复制 MCP 客户端配置"),
+        ("Regenerate token", "重新生成令牌"),
+        ("MCP connection request", "MCP 连接请求"),
+        ("An MCP client wants to control {}. Allow?", "MCP 客户端想要控制 {}，是否允许？"),
+        ("Agent control request", "Agent 控制请求"),
+        ("An AI agent asks to take exclusive control of {}. Your input is blocked until you take over again.", "AI Agent 请求独占控制 {}。在你重新接管之前，你的输入将被屏蔽。"),
+        ("AI agent is in control", "AI Agent 正在控制"),
+        ("Take over", "接管"),
+        ("mcp-server-tip", "允许 Claude 等 MCP 客户端通过 RustDesk 控制远程电脑。仅监听 127.0.0.1 并需要访问令牌；除非在下方关闭，否则连接和控制请求都需要你的批准。")
+>>>>>>> be9011d93 (feat(flutter): built-in MCP server so AI agents can control remote sessions)
     ].iter().cloned().collect();
 }

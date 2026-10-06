@@ -781,6 +781,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Relay fallback delay in seconds", "릴레이 대체 작동 지연 시간 (초)"),
         ("relay-fallback-delay-tip", "이미 연결된 중계 연결이 직접 WebRTC 연결을 얼마나 기다린 후 대신 사용되는지입니다. 값을 늘리면 느린 직접 연결에 더 많은 시간을 주고, 줄이면 직접 연결이 불가능한 네트워크에서 더 빨리 중계로 전환합니다. 비워 두면 기본값 2.5초가 사용됩니다."),
         ("To start a voice call, enable \"Audio capture\" on the \"Share screen\" page.", "음성 통화를 시작하려면 '화면 공유' 페이지에서 '오디오 캡처'를 사용함으로 하세요."),
+<<<<<<< HEAD
         ("Keyboard shortcuts", "키보드 단축키"),
         ("Configure shortcuts...", "단축키 구성"),
         ("Enable keyboard shortcuts in remote session", "원격 세션에서 키보드 단축키 사용함"),
@@ -826,5 +827,21 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("install-directory-not-empty-tip", "선택한 폴더가 비어 있지 않습니다. 설치 시 기존 데이터가 삭제될 수 있습니다. 다른 폴더를 선택하는 것이 좋습니다."),
         ("Request approval", "승인 요청"),
         ("Forever", "영구"),
+=======
+        ("MCP server", ""),
+        ("Enable MCP server", ""),
+        ("Let agents connect and take control without asking", ""),
+        ("Running", ""),
+        ("Starting...", ""),
+        ("Copy MCP client config", ""),
+        ("Regenerate token", ""),
+        ("MCP connection request", ""),
+        ("An MCP client wants to control {}. Allow?", ""),
+        ("Agent control request", ""),
+        ("An AI agent asks to take exclusive control of {}. Your input is blocked until you take over again.", ""),
+        ("AI agent is in control", ""),
+        ("Take over", ""),
+        ("mcp-server-tip", "")
+>>>>>>> be9011d93 (feat(flutter): built-in MCP server so AI agents can control remote sessions)
     ].iter().cloned().collect();
 }

@@ -780,6 +780,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("RustDesk could not load a GStreamer component needed for screen capture ({})", "Το RustDesk δεν μπόρεσε να φορτώσει ένα στοιχείο του GStreamer που απαιτείται για την καταγραφή οθόνης ({})"),
         ("Relay fallback delay in seconds", "Καθυστέρηση πριν από τη χρήση αναμεταδότη σε δευτερόλεπτα"),
         ("relay-fallback-delay-tip", "Πόσο χρόνο περιμένει μια ήδη ενεργή σύνδεση αναμεταδότη την απευθείας σύνδεση WebRTC πριν χρησιμοποιηθεί στη θέση της. Αυξήστε το για να δώσετε σε μια αργή απευθείας σύνδεση περισσότερο χρόνο. Μειώστε το για ταχύτερη επιστροφή στον αναμεταδότη σε δίκτυα όπου δεν είναι δυνατή η απευθείας σύνδεση. Αφήστε το κενό για την προεπιλογή των 2.5 δευτερολέπτων."),
+<<<<<<< HEAD
         ("To start a voice call, enable \"Audio capture\" on the \"Share screen\" page.", "Για να ξεκινήσετε φωνητική κλήση, ενεργοποιήστε την «Εγγραφή ήχου» στη σελίδα «Κοινή χρήση οθόνης»."),
         ("Keyboard shortcuts", "Συντομεύσεις πληκτρολογίου"),
         ("Configure shortcuts...", "Διαμόρφωση συντομεύσεων..."),
@@ -826,5 +827,22 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("install-directory-not-empty-tip", "Ο επιλεγμένος φάκελος δεν είναι κενός. Η εγκατάσταση ενδέχεται να διαγράψει υπάρχοντα δεδομένα. Εξετάστε το ενδεχόμενο να επιλέξετε διαφορετικό φάκελο."),
         ("Request approval", "Αίτημα έγκρισης"),
         ("Forever", "Για πάντα"),
+=======
+        ("To start a voice call, enable \"Audio capture\" on the \"Share screen\" page.", ""),
+        ("MCP server", ""),
+        ("Enable MCP server", ""),
+        ("Let agents connect and take control without asking", ""),
+        ("Running", ""),
+        ("Starting...", ""),
+        ("Copy MCP client config", ""),
+        ("Regenerate token", ""),
+        ("MCP connection request", ""),
+        ("An MCP client wants to control {}. Allow?", ""),
+        ("Agent control request", ""),
+        ("An AI agent asks to take exclusive control of {}. Your input is blocked until you take over again.", ""),
+        ("AI agent is in control", ""),
+        ("Take over", ""),
+        ("mcp-server-tip", "")
+>>>>>>> be9011d93 (feat(flutter): built-in MCP server so AI agents can control remote sessions)
     ].iter().cloned().collect();
 }
