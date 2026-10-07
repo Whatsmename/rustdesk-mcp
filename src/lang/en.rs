@@ -56,7 +56,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Add Tag", "Add tag"),
         ("Wrong credentials", "Wrong username or password"),
         ("Edit Tag", "Edit tag"),
-        ("Forget Password", "Clear saved password"),
+        ("Forget Password", "Forget password"),
         ("Add to Favorites", "Add to favorites"),
         ("Remove from Favorites", "Remove from favorites"),
         ("Socks5 Proxy", "Socks5 proxy"),
@@ -279,22 +279,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("terminal-clipboard-write-tip", "An app in the terminal wants to copy text to this device's clipboard. If granted, this permission applies to terminal apps in all connections until you turn it off in Settings. Manual copy and paste are unaffected."),
         ("port-forward-mux-tip", "Carry every connection of a port-forward mapping over a single connection to the peer, instead of connecting and logging in again for each one."),
         ("relay-fallback-delay-tip", "How long a relay connection that is already up waits for the direct WebRTC connection before it is used instead. Raise it to give a slow direct connection more time to win; lower it to settle on the relay sooner on networks where a direct connection cannot be made. Leave empty for the default of 2.5 seconds."),
-<<<<<<< HEAD
-        ("shortcut-page-description", "Bind a key combination to each session action below. Each binding must include at least one modifier."),
-        ("shortcut-passthrough-tip", "When on, every bound combination is forwarded to the remote. Useful when a binding collides with something you need on the remote."),
-        ("shortcut-reset-confirm-tip", "This will replace all current bindings with the default set. Continue?"),
-        ("shortcut-recording-instruction", "Press the key combination you want to use."),
-        ("shortcut-recording-press-keys-tip", "Press a key combination..."),
-        ("shortcut-must-include-modifiers", "Must include at least one modifier: {}"),
-        ("shortcut-already-bound-to", "Already bound to"),
-        ("shortcut-mobile-physical-keyboard-tip", "Recording requires a physical keyboard. Soft keyboards are not supported."),
-        ("shortcut-key-not-supported", "\"{}\" can't be used as a shortcut."),
-        ("api_server_connection_tip", "Your custom server uses unencrypted HTTP. Contact your administrator to enable HTTPS."),
-        ("api_server_empty_tip", "With API Server empty, your custom server defaults to HTTP. Contact your administrator to enable HTTPS."),
-        ("android-logs-folder-tip", "Choose Android → media to store log files."),
-        ("install-directory-not-empty-tip", "The selected folder is not empty. Installation may delete existing data. Consider choosing a different folder."),
-=======
         ("mcp-server-tip", "Let MCP clients such as Claude control remote computers through RustDesk. Listens on 127.0.0.1 only and requires an access token. Connections and control requests need your approval unless you turn that off below."),
->>>>>>> be9011d93 (feat(flutter): built-in MCP server so AI agents can control remote sessions)
+        ("mcp-read-access-tip", "Enabling MCP lets local MCP clients that hold the access token list your open remote sessions and take screenshots of them without asking for control."),
     ].iter().cloned().collect();
 }
