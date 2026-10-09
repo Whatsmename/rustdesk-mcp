@@ -2010,6 +2010,7 @@ class RustdeskImpl {
       required String grantId,
       required List<String> buttons,
       required List<String> keys,
+      required bool revoke,
       dynamic hint}) {
     throw UnimplementedError('mcpReleaseInput');
   }
