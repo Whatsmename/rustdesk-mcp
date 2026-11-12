@@ -28,5 +28,4 @@ object FFI {
     external fun getBuildinOption(key: String): String
     external fun onClipboardUpdate(clips: ByteBuffer)
     external fun isServiceClipboardEnabled(): Boolean
-    external fun setDocumentLogsEnabled(enabled: Boolean)
 }

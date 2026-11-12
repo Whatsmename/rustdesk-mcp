@@ -387,10 +387,7 @@ class _DesktopTabState extends State<DesktopTab>
   @override
   void onWindowMinimize() {
     stateGlobal.setMinimized(true);
-    // GTK preserves maximization and may restore without a maximize event.
-    if (!isLinux) {
-      stateGlobal.setMaximized(false);
-    }
+    stateGlobal.setMaximized(false);
     super.onWindowMinimize();
   }
 

@@ -1,0 +1,6 @@
+name: Bridge dispatch
+on:
+  workflow_dispatch:
+jobs:
+  call-bridge:
+    uses: ./.github/workflows/bridge.yml
