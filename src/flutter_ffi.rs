@@ -733,6 +733,7 @@ pub fn session_handle_flutter_key_event(
         if let Some(session) = sessions::get_session_by_session_id(&session_id) {
             let keyboard_mode = session.get_keyboard_mode();
             session.handle_flutter_key_event(
+                session_id,
                 &keyboard_mode,
                 &character,
                 usb_hid,
@@ -759,6 +760,7 @@ pub fn session_handle_flutter_raw_key_event(
         if let Some(session) = sessions::get_session_by_session_id(&session_id) {
             let keyboard_mode = session.get_keyboard_mode();
             session.handle_flutter_raw_key_event(
+                session_id,
                 &keyboard_mode,
                 &name,
                 platform_code,

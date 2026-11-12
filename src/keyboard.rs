@@ -819,18 +819,18 @@ pub fn release_remote_keys(keyboard_mode: &str) {
 }
 
 #[cfg(all(feature = "flutter", not(any(target_os = "android", target_os = "ios"))))]
-pub fn release_remote_keys_for_session(session: &crate::flutter::FlutterSession) {
+pub fn release_remote_keys_for_session(session: &crate::flutter::FlutterSession, session_id: SessionID) {
     // MCP holds the ownership lock here; cleanup targets this session directly
     // rather than re-entering the human-input gate or following a focus change.
     let keyboard_mode = session.get_keyboard_mode();
     for (key, mut event) in take_remote_keys() {
         event.event_type = EventType::KeyRelease(key);
-        client::process_event_with_session(&keyboard_mode, &event, None, session);
+        client::process_event_with_session(&keyboard_mode, &event, None, session, session_id);
         if key == Key::Alt || key == Key::AltGr {
             event.event_type = EventType::KeyPress(key);
-            client::process_event_with_session(&keyboard_mode, &event, None, session);
+            client::process_event_with_session(&keyboard_mode, &event, None, session, session_id);
             event.event_type = EventType::KeyRelease(key);
-            client::process_event_with_session(&keyboard_mode, &event, None, session);
+            client::process_event_with_session(&keyboard_mode, &event, None, session, session_id);
         }
     }
 }
@@ -1188,7 +1188,7 @@ pub fn legacy_keyboard_mode(event: &Event, mut key_event: KeyEvent) -> Vec<KeyEv
             if is_win && ctrl && alt {
                 // Flutter sends converted events under the ownership lock.
                 #[cfg(feature = "flutter")]
-                events.push(client::event_ctrl_alt_del());
+                events.push(client::event_ctrl_alt_del(&get_peer_platform()));
                 #[cfg(not(feature = "flutter"))]
                 client::ctrl_alt_del();
                 return events;
