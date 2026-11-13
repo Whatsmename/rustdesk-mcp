@@ -413,11 +413,11 @@ class _GeneralState extends State<_General> {
   @override
   Widget build(BuildContext context) {
     final scrollController = ScrollController();
+    final showMcpServer = !isWeb && !bind.isIncomingOnly();
     return ListView(
       controller: scrollController,
-      // The cards differ a lot in height. Lazily built, the estimated scroll
-      // extent is wrong and the view jumps back when it reaches the bottom.
-      cacheExtent: double.infinity,
+      // The MCP card makes lazy scroll-extent estimates jump at the bottom.
+      cacheExtent: showMcpServer ? double.infinity : null,
       children: [
         if (!isWeb) service(),
         theme(),
@@ -427,8 +427,8 @@ class _GeneralState extends State<_General> {
         if (!isWeb) record(context),
         if (!isWeb) WaylandCard(),
         other(),
+        if (showMcpServer) mcpServer(),
         if (!bind.isIncomingOnly()) keyboardShortcuts(),
-        if (!isWeb && !bind.isIncomingOnly()) mcpServer(),
       ],
     ).marginOnly(bottom: _kListViewBottomMargin);
   }
