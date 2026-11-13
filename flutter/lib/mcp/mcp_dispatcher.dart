@@ -78,6 +78,22 @@ abstract class McpBackend {
       {String action = 'press'});
 
   Future<void> disconnect(String sessionId);
+
+  /// The network configuration in use: ID/relay server, key, relay-only flag.
+  Future<Map<String, dynamic>> networkStatus();
+
+  /// Named network configurations the client can switch between.
+  /// `public` (official RustDesk servers) is built in.
+  Future<List<Map<String, dynamic>>> listNetworkProfiles();
+
+  /// Applies a profile's options; keys absent from the profile are cleared.
+  /// The client reconnects to the new servers by itself; open sessions drop.
+  Future<Map<String, dynamic>> applyNetworkProfile(String name);
+
+  /// Creates/replaces a profile, or deletes it when [remove] is set.
+  Future<Map<String, dynamic>> saveNetworkProfile(String name,
+      Map<String, dynamic> settings,
+      {bool remove = false});
 }
 
 class _Tool {
@@ -685,6 +701,79 @@ class McpDispatcher {
         (a) async {
           await backend.disconnect(sid(a));
           return text('ok');
+        },
+      ),
+      _Tool(
+        'network_status',
+        'Show the RustDesk network configuration in use: custom ID/relay '
+            'server, server key, relay-only flag, and which network is active '
+            '(`active` is "public" when no custom ID server is set).',
+        {},
+        [],
+        _readOnly,
+        (a) async => structured(await backend.networkStatus()),
+      ),
+      _Tool(
+        'list_network_profiles',
+        'List the named network profiles. `public` is built in (official '
+            'RustDesk discovery servers, clears all custom options). Custom '
+            'profiles are stored in the `mcp-network-profiles` client option; '
+            'create them with save_network_profile.',
+        {},
+        [],
+        _readOnly,
+        (a) async => structured({'profiles': await backend.listNetworkProfiles()}),
+      ),
+      _Tool(
+        'apply_network_profile',
+        'Switch the client onto a named network profile: sets the ID server, '
+            'relay server, key and relay-only options from the profile and '
+            'clears the ones it does not define. The client reconnects to the '
+            'new servers automatically; open remote sessions drop.',
+        {
+          'name': {
+            'type': 'string',
+            'description': 'Profile name from list_network_profiles, e.g. '
+                '`public` or a saved profile.',
+          },
+        },
+        ['name'],
+        _safeWrite,
+        (a) async =>
+            structured(await backend.applyNetworkProfile(_requireString(a, 'name'))),
+      ),
+      _Tool(
+        'save_network_profile',
+        'Create or replace a network profile (delete it with `remove: true`). '
+            'Settings: `rendezvous_server` (ID server host[:port], required), '
+            '`relay_server`, `key` (server public key, base64), '
+            '`always_use_relay` (boolean). The built-in `public` profile '
+            'cannot be changed.',
+        {
+          'name': {'type': 'string', 'description': 'Profile name.'},
+          'settings': {
+            'type': 'object',
+            'properties': {
+              'rendezvous_server': {'type': 'string'},
+              'relay_server': {'type': 'string'},
+              'key': {'type': 'string'},
+              'always_use_relay': {'type': 'boolean'},
+            },
+          },
+          'remove': {'type': 'boolean'},
+        },
+        ['name'],
+        _safeWrite,
+        (a) async {
+          final remove = a['remove'] == true;
+          final settings = a['settings'];
+          if (!remove && settings is! Map<String, dynamic>) {
+            throw McpToolException('`settings` must be an object.');
+          }
+          return structured(await backend.saveNetworkProfile(
+              _requireString(a, 'name'),
+              settings is Map<String, dynamic> ? settings : const {},
+              remove: remove));
         },
       ),
     ];
