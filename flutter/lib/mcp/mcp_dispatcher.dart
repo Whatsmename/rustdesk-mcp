@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'mcp_image.dart';
 import 'mcp_utils.dart';
 
 const String kMcpProtocolVersion = '2025-06-18';
@@ -72,12 +73,31 @@ abstract class McpBackend {
   /// paste shortcut.
   Future<void> pasteText(String sessionId, String text, {bool paste = true});
 
+  /// [action] is one of [kMcpRemoteActions].
+  Future<void> remoteAction(String sessionId, String action);
+
   /// [key] uses RustDesk key names such as `VK_RETURN` or `VK_A`. [action] is
   /// one of [kMcpKeyActions].
   Future<void> pressKey(String sessionId, String key, List<String> modifiers,
       {String action = 'press'});
 
   Future<void> disconnect(String sessionId);
+
+  /// The network configuration in use: ID/relay server, key, relay-only flag.
+  Future<Map<String, dynamic>> networkStatus();
+
+  /// Named network configurations the client can switch between.
+  /// `public` (official RustDesk servers) is built in.
+  Future<List<Map<String, dynamic>>> listNetworkProfiles();
+
+  /// Applies a profile's options; keys absent from the profile are cleared.
+  /// The client reconnects to the new servers by itself; open sessions drop.
+  Future<Map<String, dynamic>> applyNetworkProfile(String name);
+
+  /// Creates/replaces a profile, or deletes it when [remove] is set.
+  Future<Map<String, dynamic>> saveNetworkProfile(String name,
+      Map<String, dynamic> settings,
+      {bool remove = false});
 }
 
 class _Tool {
@@ -159,6 +179,7 @@ const _sessionSchema = {
       'enum': ['agent', 'human'],
     },
     'ready': {'type': 'boolean'},
+    'is_wayland': {'type': 'boolean'},
     'state': {
       'type': 'string',
       'enum': [
@@ -389,9 +410,12 @@ class McpDispatcher {
       ),
       _Tool(
         'screenshot',
-        'Capture the current screen of a remote session as a PNG image, '
-            'followed by a text line with its pixel size. Mouse coordinates '
-            'use the same pixels. Allowed in either mode. Take one before '
+        'Capture the current screen of a remote session as a PNG image. '
+            'Optional `scale` reduces the returned image size (e.g. 0.5). '
+            'Mouse coordinates always use original remote display pixels: '
+            'multiply image coordinates by coordinate_scale_x/y from the '
+            'result before clicking. Scaling reduces returned image bytes, '
+            'not the peer capture time. Allowed in either mode. Take one before '
             'clicking and another afterwards to check the result, or pass '
             '`screenshot_after_ms` to an input tool.',
         {
@@ -400,19 +424,46 @@ class McpDispatcher {
             'type': 'integer',
             'description': 'Remote display index, default 0 (primary).',
           },
+          'scale': {
+            'type': 'number',
+            'exclusiveMinimum': 0,
+            'maximum': 1,
+            'description': 'Output size factor, greater than 0 and at most 1. '
+                'Default 1 (original image). Mouse input still uses original pixels.',
+          },
         },
         ['session_id'],
         _readOnly,
         (a) async {
+          final value = a['scale'] ?? 1;
+          if (value is! num || !value.isFinite || value <= 0 || value > 1) {
+            throw McpToolException(
+                '`scale` must be greater than 0 and at most 1.');
+          }
           final display = _optionalInt(a, 'display');
-          final image = await backend.screenshot(sid(a), display: display);
+          final original = await backend.screenshot(sid(a), display: display);
+          final remoteSize = pngSize(original.pngBytes);
+          final McpImage image;
+          try {
+            image = McpImage(
+                await scaleMcpPng(original.pngBytes, value.toDouble()));
+          } catch (_) {
+            throw McpToolException('Could not scale the screenshot.');
+          }
           final size = pngSize(image.pngBytes);
           return {
-            'content': _imageContent(image, display),
+            'content': _imageContent(image, display,
+                remoteSize: value == 1 ? null : remoteSize),
             'structuredContent': {
               'display': display,
               if (size != null) 'width': size.width,
               if (size != null) 'height': size.height,
+              if (remoteSize != null && size != null) ...{
+                'remote_width': remoteSize.width,
+                'remote_height': remoteSize.height,
+                'coordinate_scale_x': remoteSize.width / size.width,
+                'coordinate_scale_y': remoteSize.height / size.height,
+              },
             },
           };
         },
@@ -422,6 +473,10 @@ class McpDispatcher {
             'display': {'type': 'integer'},
             'width': {'type': 'integer'},
             'height': {'type': 'integer'},
+            'remote_width': {'type': 'integer'},
+            'remote_height': {'type': 'integer'},
+            'coordinate_scale_x': {'type': 'number'},
+            'coordinate_scale_y': {'type': 'number'},
           },
           'required': ['display'],
         },
@@ -526,23 +581,27 @@ class McpDispatcher {
         'type_text',
         'Type text on the remote machine as keyboard input. By default the '
             'text is sent at once, which is fast and fine in browsers. Each '
-            'line break (LF, CRLF or CR) is pressed as Enter, which may submit '
-            'a single-line field or form. PowerShell 5.1 with PSReadLine '
+            'line break (LF, CRLF or CR) is normally pressed as Enter, which '
+            'may submit a single-line field or form. On Wayland, text containing '
+            'non-ASCII characters is sent as one whole text batch: delay_ms '
+            'is ignored and normalized line breaks are pasted as text rather '
+            'than pressed as Enter. This avoids the peer clipboard being '
+            'overwritten between asynchronous pastes. Terminals may execute '
+            'pasted newlines immediately. PowerShell 5.1 with PSReadLine '
             'may ignore this Unicode keyboard input; use `paste_text` there. '
             'Some apps (Notepad, for example) drop or garble characters that '
             'arrive that fast; there set `delay_ms` to 20-30 to type one '
             'character at a time (slower, at most $kMcpMaxTypeChars '
             'characters and 60 seconds per call). Check the result with '
-            '`screenshot_after_ms`. Delayed non-ASCII input can be garbled '
-            'on GNOME Wayland peers; prefer delay_ms 0 for that text. '
-            'Needs agent control.',
+            '`screenshot_after_ms`. Needs agent control.',
         {
           'session_id': _sessionIdProp,
           'text': {'type': 'string'},
           'delay_ms': {
             'type': 'integer',
             'description': 'Pause between characters, 0 to 200. Default 0 '
-                '(send everything at once).',
+                '(send everything at once). Ignored for a Wayland text batch '
+                'containing non-ASCII characters.',
           },
           'display': {
             'type': 'integer',
@@ -677,6 +736,43 @@ class McpDispatcher {
         },
       ),
       _Tool(
+        'remote_action',
+        'Send a session toolbar action that ordinary keys cannot express. '
+            '`ctrl_alt_del` sends Ctrl+Alt+Del (the secure attention '
+            'sequence), e.g. to reach the Windows sign-in screen. '
+            '`lock_screen` locks the remote session. `os_password` sends the '
+            'OS password saved for this peer through its guarded OS login '
+            'path; you never see the password. Requires Windows or macOS '
+            '1.5.1 or newer; older and other peers are refused. The peer '
+            'types it and presses Enter only at its login or lock screen. '
+            'Show the sign-in screen first. Success means the action was '
+            'sent, not that the OS accepted it; check a screenshot. '
+            'Ctrl+Alt+Del requires Windows secure attention support or Linux. '
+            'Needs agent control and remote keyboard permission.',
+        {
+          'session_id': _sessionIdProp,
+          'action': {
+            'type': 'string',
+            'enum': kMcpRemoteActions.toList(),
+          },
+          'display': {
+            'type': 'integer',
+            'description': 'Display captured by `screenshot_after_ms`, '
+                'default 0.',
+          },
+          'screenshot_after_ms': _screenshotAfterProp,
+        },
+        ['session_id', 'action'],
+        _input,
+        (a) async {
+          final action = _requireString(a, 'action');
+          if (!kMcpRemoteActions.contains(action)) {
+            throw McpToolException('Unknown action: $action');
+          }
+          return input(a, () => backend.remoteAction(sid(a), action));
+        },
+      ),
+      _Tool(
         'disconnect',
         'Close a remote desktop session. Needs agent control.',
         {'session_id': _sessionIdProp},
@@ -687,10 +783,84 @@ class McpDispatcher {
           return text('ok');
         },
       ),
+      _Tool(
+        'network_status',
+        'Show the RustDesk network configuration in use: custom ID/relay '
+            'server, server key, relay-only flag, and which network is active '
+            '(`active` is "public" when no custom ID server is set).',
+        {},
+        [],
+        _readOnly,
+        (a) async => structured(await backend.networkStatus()),
+      ),
+      _Tool(
+        'list_network_profiles',
+        'List the named network profiles. `public` is built in (official '
+            'RustDesk discovery servers, clears all custom options). Custom '
+            'profiles are stored in the `mcp-network-profiles` client option; '
+            'create them with save_network_profile.',
+        {},
+        [],
+        _readOnly,
+        (a) async => structured({'profiles': await backend.listNetworkProfiles()}),
+      ),
+      _Tool(
+        'apply_network_profile',
+        'Switch the client onto a named network profile: sets the ID server, '
+            'relay server, key and relay-only options from the profile and '
+            'clears the ones it does not define. The client reconnects to the '
+            'new servers automatically; open remote sessions drop.',
+        {
+          'name': {
+            'type': 'string',
+            'description': 'Profile name from list_network_profiles, e.g. '
+                '`public` or a saved profile.',
+          },
+        },
+        ['name'],
+        _safeWrite,
+        (a) async =>
+            structured(await backend.applyNetworkProfile(_requireString(a, 'name'))),
+      ),
+      _Tool(
+        'save_network_profile',
+        'Create or replace a network profile (delete it with `remove: true`). '
+            'Settings: `rendezvous_server` (ID server host[:port], required), '
+            '`relay_server`, `key` (server public key, base64), '
+            '`always_use_relay` (boolean). The built-in `public` profile '
+            'cannot be changed.',
+        {
+          'name': {'type': 'string', 'description': 'Profile name.'},
+          'settings': {
+            'type': 'object',
+            'properties': {
+              'rendezvous_server': {'type': 'string'},
+              'relay_server': {'type': 'string'},
+              'key': {'type': 'string'},
+              'always_use_relay': {'type': 'boolean'},
+            },
+          },
+          'remove': {'type': 'boolean'},
+        },
+        ['name'],
+        _safeWrite,
+        (a) async {
+          final remove = a['remove'] == true;
+          final settings = a['settings'];
+          if (!remove && settings is! Map<String, dynamic>) {
+            throw McpToolException('`settings` must be an object.');
+          }
+          return structured(await backend.saveNetworkProfile(
+              _requireString(a, 'name'),
+              settings is Map<String, dynamic> ? settings : const {},
+              remove: remove));
+        },
+      ),
     ];
   }
 
-  List<Map<String, dynamic>> _imageContent(McpImage image, int display) {
+  List<Map<String, dynamic>> _imageContent(McpImage image, int display,
+      {({int width, int height})? remoteSize}) {
     final size = pngSize(image.pngBytes);
     return [
       {
@@ -701,8 +871,14 @@ class McpDispatcher {
       if (size != null)
         {
           'type': 'text',
-          'text': 'Display $display: ${size.width}x${size.height} px. '
-              'Mouse coordinates are pixels in this image.',
+          'text': remoteSize == null
+              ? 'Display $display: ${size.width}x${size.height} px. '
+                  'Mouse coordinates are pixels in this image.'
+              : 'Display $display: image ${size.width}x${size.height} px, '
+                  'remote ${remoteSize.width}x${remoteSize.height} px. '
+                  'Mouse coordinates use remote pixels: multiply image x by '
+                  '${remoteSize.width / size.width} and image y by '
+                  '${remoteSize.height / size.height}.',
         },
     ];
   }
@@ -835,6 +1011,12 @@ const Map<String, String> kMcpMouseButtons = {
 const Set<String> kMcpScrollDirections = {'up', 'down', 'left', 'right'};
 
 const Set<String> kMcpKeyActions = {'press', 'down', 'up'};
+
+const Set<String> kMcpRemoteActions = {
+  'ctrl_alt_del',
+  'lock_screen',
+  'os_password',
+};
 
 const Map<String, String> kMcpModifierKeyNames = {
   'ctrl': 'VK_CONTROL',

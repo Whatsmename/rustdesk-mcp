@@ -31,7 +31,8 @@ class McpWindowBusy extends McpToolException {
 }
 
 class RustDeskMcpBackend implements McpBackend {
-  final Future<bool> Function(String peerId) approveConnect;
+  /// True grants initial control too; false denies, null means approval expired.
+  final Future<bool?> Function(String peerId) approveConnect;
 
   RustDeskMcpBackend({required this.approveConnect});
 
@@ -318,9 +319,15 @@ class RustDeskMcpBackend implements McpBackend {
   Future<({String sessionId, McpInputState input})> _open(String peerId) async {
     _checkRunning();
     final autoApprove =
-        mainGetLocalBoolOptionSync(kOptionMcpAutoApproveControl);
-    if (!autoApprove && !await approveConnect(peerId)) {
-      throw McpToolException('The user denied the connection to $peerId.');
+        mainGetLocalBoolOptionSync(kOptionMcpAutoApproveConnect);
+    if (!autoApprove) {
+      final allowed = await approveConnect(peerId);
+      if (allowed == null) {
+        throw McpToolException('Connection approval timed out for $peerId.');
+      }
+      if (!allowed) {
+        throw McpToolException('The user denied the connection to $peerId.');
+      }
     }
     // The human may have opened this peer while the prompt was up. That
     // session stays theirs; the next connect call returns it unchanged.
@@ -359,6 +366,8 @@ class RustDeskMcpBackend implements McpBackend {
           'Timed out waiting for the session window to open.');
     }
     _checkRunning();
+    // Connecting approves initial control of this new session. The separate
+    // control setting governs taking over sessions that are already open.
     final input = await _requestControl(sessionId, ask: false);
     return (sessionId: sessionId, input: input);
   }
@@ -428,6 +437,9 @@ class RustDeskMcpBackend implements McpBackend {
           {'session_id': sessionId, 'request_id': grantId},
           _kControlRequestTimeout);
       checkCurrent();
+      if (granted == null) {
+        throw McpToolException('Control approval timed out.');
+      }
       if (granted != true) return null;
     }
     await _find(sessionId);
@@ -735,9 +747,12 @@ class RustDeskMcpBackend implements McpBackend {
   @override
   Future<void> typeText(String sessionId, String text, {int delayMs = 0}) =>
       _serialized(sessionId, (input) async {
-        await _writable(sessionId);
+        final session = await _writable(sessionId);
         final sid = UuidValue(sessionId);
-        final chunks = mcpTextChunks(text, delayed: delayMs > 0).toList();
+        final chunks = mcpTextChunks(text,
+                delayed: delayMs > 0,
+                batchUnicode: session['is_wayland'] == true)
+            .toList();
         for (var i = 0; i < chunks.length; i++) {
           input.checkActive();
           if (chunks[i] == '\n') {
@@ -770,6 +785,17 @@ class RustDeskMcpBackend implements McpBackend {
                 kPeerPlatformMacOS;
         await _pressKey(
             input, sessionId, 'VK_V', [mac ? 'command' : 'ctrl'], 'press');
+      });
+
+  @override
+  Future<void> remoteAction(String sessionId, String action) =>
+      _serialized(sessionId, (input) async {
+        await _writable(sessionId);
+        input.checkActive();
+        _checkInputResult(await bind.sessionMcpRemoteAction(
+            sessionId: UuidValue(sessionId),
+            grantId: input.grantId,
+            action: action));
       });
 
   @override
@@ -831,5 +857,123 @@ class RustDeskMcpBackend implements McpBackend {
     if (await closing != true) {
       throw McpToolException('Control changed or the session was closed.');
     }
+  }
+
+  // ---- Network profiles ----
+
+  /// MCP-facing setting names -> RustDesk global option keys.
+  static const _kNetworkOptionKeys = {
+    'rendezvous_server': 'custom-rendezvous-server',
+    'relay_server': 'relay-server',
+    'key': 'key',
+    'always_use_relay': 'always-use-relay',
+  };
+  static const _kProfilesOption = 'mcp-network-profiles';
+
+  Map<String, dynamic> _networkProfiles() {
+    final raw = bind.mainGetLocalOption(key: _kProfilesOption);
+    if (raw.isEmpty) return {};
+    try {
+      final v = jsonDecode(raw);
+      return v is Map<String, dynamic> ? v : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Map<String, dynamic> _profileSettings(Map<String, dynamic> profile) {
+    final s = profile['settings'];
+    return s is Map<String, dynamic> ? s : const {};
+  }
+
+  @override
+  Future<Map<String, dynamic>> networkStatus() async {
+    final rendezvous = await bind.mainGetOption(key: 'custom-rendezvous-server');
+    final relay = await bind.mainGetOption(key: 'relay-server');
+    final key = await bind.mainGetOption(key: 'key');
+    final relayOnly = await bind.mainGetOption(key: 'always-use-relay');
+    return {
+      'rendezvous_server': rendezvous,
+      'relay_server': relay,
+      'key': key,
+      'always_use_relay': relayOnly == 'Y',
+      'active': rendezvous.isEmpty ? 'public' : rendezvous,
+    };
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> listNetworkProfiles() async {
+    final saved = _networkProfiles();
+    return [
+      {'name': 'public', 'builtin': true, 'settings': const <String, dynamic>{}},
+      ...saved.entries
+          .where((e) => e.value is Map<String, dynamic>)
+          .map((e) => {
+                'name': e.key,
+                'builtin': false,
+                'settings': _profileSettings(
+                    e.value as Map<String, dynamic>),
+              }),
+    ];
+  }
+
+  @override
+  Future<Map<String, dynamic>> applyNetworkProfile(String name) async {
+    Map<String, dynamic> settings;
+    if (name == 'public') {
+      settings = const {};
+    } else {
+      final profile = _networkProfiles()[name];
+      if (profile is! Map<String, dynamic>) {
+        throw McpToolException('Unknown network profile: $name. '
+            'Call list_network_profiles for names.');
+      }
+      settings = _profileSettings(profile);
+    }
+    // Same one-by-one option writes the ID/Relay Server dialog performs; the
+    // rendezvous mediator picks them up and reconnects by itself.
+    for (final entry in _kNetworkOptionKeys.entries) {
+      final value = settings[entry.key];
+      final stored = entry.key == 'always_use_relay'
+          ? (value == true || value == 'Y' ? 'Y' : '')
+          : (value is String ? value : '');
+      await bind.mainSetOption(key: entry.value, value: stored);
+    }
+    return {'applied': name, ...await networkStatus()};
+  }
+
+  @override
+  Future<Map<String, dynamic>> saveNetworkProfile(String name,
+      Map<String, dynamic> settings,
+      {bool remove = false}) async {
+    if (name == 'public') {
+      throw McpToolException('`public` is built in and cannot be changed.');
+    }
+    final profiles = _networkProfiles();
+    if (remove) {
+      if (!profiles.containsKey(name)) {
+        throw McpToolException('Unknown network profile: $name.');
+      }
+      profiles.remove(name);
+    } else {
+      for (final k in settings.keys) {
+        if (!_kNetworkOptionKeys.containsKey(k)) {
+          throw McpToolException('Unknown setting: $k. Allowed: '
+              '${_kNetworkOptionKeys.keys.join(', ')}.');
+        }
+      }
+      final rendezvous = settings['rendezvous_server'];
+      if (rendezvous is! String || rendezvous.isEmpty) {
+        throw McpToolException(
+            '`rendezvous_server` is required, e.g. "100.124.31.122".');
+      }
+      profiles[name] = {'settings': settings};
+    }
+    await bind.mainSetLocalOption(key: _kProfilesOption, value: jsonEncode(profiles));
+    return {
+      'saved': name,
+      'removed': remove,
+      'profiles': profiles.keys.toList(),
+    };
   }
 }
