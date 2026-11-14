@@ -12,6 +12,7 @@ import 'package:flutter_hbb/utils/multi_window_manager.dart';
 import 'package:get/get.dart';
 
 import '../../models/platform_model.dart';
+import '../../mcp/mcp_aux_window.dart';
 
 /// File Transfer for multi tabs
 class FileManagerTabPage extends StatefulWidget {
@@ -67,8 +68,10 @@ class _FileManagerTabPageState extends State<FileManagerTabPage> {
     super.initState();
 
     rustDeskWinManager.setMethodHandler((call, fromWindowId) async {
-      debugPrint(
-          "[FileTransfer] call ${call.method} with args ${call.arguments} from window $fromWindowId to ${windowId()}");
+      if (!call.method.startsWith('mcp_')) {
+        debugPrint(
+            "[FileTransfer] call ${call.method} with args ${call.arguments} from window $fromWindowId to ${windowId()}");
+      }
       // for simplify, just replace connectionId
       if (call.method == kWindowEventNewFileTransfer) {
         final args = jsonDecode(call.arguments);
@@ -102,6 +105,12 @@ class _FileManagerTabPageState extends State<FileManagerTabPage> {
         tabController.clear();
       } else if (call.method == kWindowActionRebuild) {
         reloadCurrentWindow();
+      } else if (call.method.startsWith('mcp_')) {
+        return handleMcpFileWindowCall(
+            call.method,
+            call.arguments,
+            tabController.state.value.tabs.map((e) => e.key).toList(),
+            tabController.closeBy);
       }
     });
     Future.delayed(Duration.zero, () {

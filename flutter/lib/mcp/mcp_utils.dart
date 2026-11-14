@@ -146,6 +146,11 @@ const Set<String> kMcpBlockedStates = {
       );
     case 'wait-remote-accept-nook':
       return (state: 'waiting_for_remote_accept', message: null);
+    // Administrator terminal: the peer asks for a Windows admin account.
+    case 'terminal-admin-login':
+    case 'terminal-admin-login-password':
+    case 'terminal-admin-login-request-approval':
+      return (state: 'needs_admin_login', message: null);
   }
   if (msgType == 'error' ||
       msgTitle == 'Connection Error' ||
@@ -174,6 +179,11 @@ String? mcpNextStep(String state) {
           'request. Ask them to accept it, then call get_session with wait_ms.';
     case 'connecting':
       return 'Still connecting. Call get_session with wait_ms to wait longer.';
+    case 'needs_admin_login':
+      return 'The peer needs the user name and password of a Windows '
+          'administrator account. You cannot supply them: ask the user to '
+          'enter them in the RustDesk terminal window, then call '
+          'terminal_read to see the terminal.';
   }
   return null;
 }

@@ -36,7 +36,9 @@ class _Session extends Fake implements FFI {
 
 class _Backend extends RustDeskMcpBackend {
   _Backend(Future<bool?> Function(String) approveConnect)
-      : super(approveConnect: approveConnect);
+      : super(
+            approveConnect: approveConnect,
+            approveAux: (_, __) async => false);
 
   int listings = 0;
   bool openedMeanwhile = false;

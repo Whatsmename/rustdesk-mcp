@@ -72,7 +72,12 @@ class McpServerManager {
     }
     if (running && _server?.port == currentPort) return;
     await _stop();
-    final backend = RustDeskMcpBackend(approveConnect: _askUser);
+    final backend = RustDeskMcpBackend(
+        approveConnect: (peerId) => _askUser(translate(
+                'An MCP client wants to connect to {} and take initial control. Your input is blocked until you take over. Allow?')
+            .replaceAll('{}', peerId)),
+        approveAux: (peerId, what) =>
+            _askUser('An MCP client wants to open $what to $peerId. Allow?'));
     final server = McpHttpServer(McpDispatcher(backend), await _token());
     await server.start(port: currentPort);
     _server = server;
@@ -96,7 +101,7 @@ class McpServerManager {
     _backend = null;
   }
 
-  Future<bool?> _askUser(String peerId) async {
+  Future<bool?> _askUser(String message) async {
     final context = globalKey.currentContext;
     if (context == null) return false;
     // A dialog in a hidden or minimized window would never be seen.
@@ -109,9 +114,7 @@ class McpServerManager {
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         title: Text(translate('MCP connection request')),
-        content: Text(translate(
-                'An MCP client wants to connect to {} and take initial control. Your input is blocked until you take over. Allow?')
-            .replaceAll('{}', peerId)),
+        content: Text(message),
         actions: [
           TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),

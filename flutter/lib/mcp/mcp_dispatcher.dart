@@ -95,9 +95,50 @@ abstract class McpBackend {
   Future<Map<String, dynamic>> applyNetworkProfile(String name);
 
   /// Creates/replaces a profile, or deletes it when [remove] is set.
-  Future<Map<String, dynamic>> saveNetworkProfile(String name,
-      Map<String, dynamic> settings,
+  Future<Map<String, dynamic>> saveNetworkProfile(
+      String name, Map<String, dynamic> settings,
       {bool remove = false});
+
+  // File transfer and terminal sessions. Each kind is off until the user
+  // enables it, every session is approved by the user when it opens, and an
+  // agent only ever sees the sessions it opened. `disconnect` and
+  // `get_session` accept their session ids too.
+
+  /// The file transfer and terminal sessions this agent opened.
+  Future<List<Map<String, dynamic>>> listAuxSessions();
+
+  Future<Map<String, dynamic>> openFileTransfer(String peerId);
+
+  /// [side] is `remote` (any peer path) or `local` (relative to the staging
+  /// folder, the only local folder an agent can reach).
+  Future<Map<String, dynamic>> listFiles(String sessionId,
+      {required String side, String? path, bool showHidden = false});
+
+  /// [direction] `download`: remote [path] into the staging folder.
+  /// `upload`: staging-relative [path] into the remote [remoteDir].
+  Future<Map<String, dynamic>> transferFile(String sessionId,
+      {required String direction,
+      required String path,
+      String? remoteDir,
+      String? localName,
+      bool overwrite = false,
+      bool includeHidden = false});
+
+  Future<Map<String, dynamic>> transferStatus(String sessionId,
+      {int? jobId, int waitMs = 0});
+
+  Future<Map<String, dynamic>> cancelTransfer(String sessionId, int jobId);
+
+  /// [elevated] opens an administrator terminal (Windows peers); the user
+  /// enters the administrator credentials, never the agent.
+  Future<Map<String, dynamic>> openTerminal(String peerId,
+      {bool elevated = false});
+
+  Future<Map<String, dynamic>> terminalWrite(String sessionId, String text,
+      {bool submit = false, int waitMs = 0, int lines = 60, int? terminalId});
+
+  Future<Map<String, dynamic>> terminalRead(String sessionId,
+      {int lines = 60, int? terminalId});
 }
 
 class _Tool {
@@ -169,11 +210,26 @@ const _screenshotAfterProp = {
       'does not wait for a page to load or an app to finish.',
 };
 
+const _peerIdProp = {
+  'type': 'string',
+  'description': 'RustDesk ID of the remote computer, from list_peers.',
+};
+
 const _sessionSchema = {
   'type': 'object',
   'properties': {
+    'kind': {
+      'type': 'string',
+      'enum': ['remote_desktop', 'file_transfer', 'terminal'],
+    },
     'peer_id': {'type': 'string'},
     'session_id': {'type': 'string'},
+    'platform': {'type': 'string'},
+    'elevated': {'type': 'boolean'},
+    'terminal_id': {'type': 'integer'},
+    'terminal_open': {'type': 'boolean'},
+    'remote_home': {'type': 'string'},
+    'staging_dir': {'type': 'string'},
     'mode': {
       'type': 'string',
       'enum': ['agent', 'human'],
@@ -189,6 +245,7 @@ const _sessionSchema = {
         'needs_password',
         'wrong_password',
         'needs_2fa',
+        'needs_admin_login',
         'waiting_for_remote_accept',
         'error',
       ],
@@ -321,7 +378,10 @@ class McpDispatcher {
       ),
       _Tool(
         'list_sessions',
-        'List all open remote desktop sessions with their mode. `agent` means '
+        'List the open sessions. `kind` is `remote_desktop`, or '
+            '`file_transfer` / `terminal` for the ones you opened with '
+            'open_file_transfer / open_terminal. For remote desktop sessions, '
+            '`mode` `agent` means '
             'you have exclusive control and the human is blocked. `human` means '
             'the human is in control: you may only read (screenshot) until '
             'request_control is granted. `state` is `connecting`, `ready`, '
@@ -332,7 +392,13 @@ class McpDispatcher {
         {},
         [],
         _readOnly,
-        (a) async => structured({'sessions': await backend.listSessions()}),
+        (a) async => structured({
+          'sessions': [
+            for (final s in await backend.listSessions())
+              {'kind': 'remote_desktop', ...s},
+            ...await backend.listAuxSessions(),
+          ]
+        }),
         outputSchema: {
           'type': 'object',
           'properties': {
@@ -774,7 +840,8 @@ class McpDispatcher {
       ),
       _Tool(
         'disconnect',
-        'Close a remote desktop session. Needs agent control.',
+        'Close a session. A remote desktop session needs agent control; a '
+            'file transfer or terminal session you opened is closed directly.',
         {'session_id': _sessionIdProp},
         ['session_id'],
         _input,
@@ -782,6 +849,167 @@ class McpDispatcher {
           await backend.disconnect(sid(a));
           return text('ok');
         },
+      ),
+      _Tool(
+        'open_file_transfer',
+        'Open a file transfer session to a peer. Off unless the user enabled '
+            'MCP file transfer, and the user approves every session. On this '
+            'computer, files can only come from or go to the staging folder '
+            '(`staging_dir`, ~/RustDesk-MCP); local paths are relative to it. '
+            'Returns the session; call again with the same peer_id while it '
+            'is `opening`. If it `needs_password`, ask the user to type it in '
+            'the file transfer window.',
+        {'peer_id': _peerIdProp},
+        ['peer_id'],
+        _safeWrite,
+        (a) async => structured(
+            await backend.openFileTransfer(_requireString(a, 'peer_id'))),
+        outputSchema: _sessionSchema,
+      ),
+      _Tool(
+        'list_files',
+        'List a folder in a file transfer session. `side` `remote`: any '
+            'path on the peer (default its home folder; on Windows `/` lists '
+            'the drives). `side` `local`: a folder inside the staging folder, '
+            'relative to it (default the staging folder itself).',
+        {
+          'session_id': _sessionIdProp,
+          'side': {
+            'type': 'string',
+            'enum': ['remote', 'local'],
+          },
+          'path': {'type': 'string'},
+          'show_hidden': {'type': 'boolean'},
+        },
+        ['session_id', 'side'],
+        _readOnly,
+        (a) async => structured(await backend.listFiles(sid(a),
+            side: _requireString(a, 'side'),
+            path: _optionalString(a, 'path'),
+            showHidden: a['show_hidden'] == true)),
+      ),
+      _Tool(
+        'transfer_file',
+        'Copy a file or folder. `download`: remote `path` (exact, from '
+            'list_files) into the staging folder, as `local_name` if given. '
+            '`upload`: `path` relative to the staging folder into the '
+            'existing remote folder `remote_dir`. Symbolic links are never '
+            'sent. Existing files are skipped unless `overwrite` is true. '
+            'Empty sub-folders are not copied. Returns a `job_id`; follow it '
+            'with transfer_status.',
+        {
+          'session_id': _sessionIdProp,
+          'direction': {
+            'type': 'string',
+            'enum': ['download', 'upload'],
+          },
+          'path': {'type': 'string'},
+          'remote_dir': {'type': 'string'},
+          'local_name': {'type': 'string'},
+          'overwrite': {'type': 'boolean'},
+          'include_hidden': {'type': 'boolean'},
+        },
+        ['session_id', 'direction', 'path'],
+        _input,
+        (a) async => structured(await backend.transferFile(sid(a),
+            direction: _requireString(a, 'direction'),
+            path: _requireString(a, 'path'),
+            remoteDir: _optionalString(a, 'remote_dir'),
+            localName: _optionalString(a, 'local_name'),
+            overwrite: a['overwrite'] == true,
+            includeHidden: a['include_hidden'] == true)),
+      ),
+      _Tool(
+        'transfer_status',
+        'Progress of your transfers in a session: all of them, or one '
+            '`job_id`. `state` is `inProgress`, `done`, `error` (see `error`) '
+            'or `paused`. With `wait_ms` (up to 20000) it waits until the '
+            'jobs finish.',
+        {
+          'session_id': _sessionIdProp,
+          'job_id': {'type': 'integer'},
+          'wait_ms': {'type': 'integer'},
+        },
+        ['session_id'],
+        _readOnly,
+        (a) async => structured(await backend.transferStatus(sid(a),
+            jobId: _nullableInt(a, 'job_id'),
+            waitMs: _optionalInt(a, 'wait_ms'))),
+      ),
+      _Tool(
+        'cancel_transfer',
+        'Cancel one of your transfers.',
+        {
+          'session_id': _sessionIdProp,
+          'job_id': {'type': 'integer'},
+        },
+        ['session_id', 'job_id'],
+        _safeWrite,
+        (a) async => structured(
+            await backend.cancelTransfer(sid(a), _requireInt(a, 'job_id'))),
+      ),
+      _Tool(
+        'open_terminal',
+        'Open a terminal (command shell) on a peer. Off unless the user '
+            'enabled MCP terminal access, and the user approves every '
+            'session. `elevated: true` opens an administrator terminal '
+            '(Windows peers only): the peer then asks for a Windows '
+            'administrator account, which only the user may enter in the '
+            'terminal window - the state is `needs_admin_login` until they '
+            'have. Never ask the user to give you those credentials. Call '
+            'again with the same arguments while it is `opening`.',
+        {
+          'peer_id': _peerIdProp,
+          'elevated': {'type': 'boolean'},
+        },
+        ['peer_id'],
+        _safeWrite,
+        (a) async => structured(await backend.openTerminal(
+            _requireString(a, 'peer_id'),
+            elevated: a['elevated'] == true)),
+        outputSchema: _sessionSchema,
+      ),
+      _Tool(
+        'terminal_write',
+        'Send text to your terminal session as typed input. Line breaks are '
+            'sent as Enter; `submit: true` adds a final Enter. Control '
+            'characters go through as-is (e.g. \u0003 is Ctrl+C). With '
+            '`wait_ms` (up to 20000) it waits for the output to settle and '
+            'returns the last `lines` of the screen as `text`.',
+        {
+          'session_id': _sessionIdProp,
+          'text': {'type': 'string'},
+          'submit': {'type': 'boolean'},
+          'wait_ms': {'type': 'integer'},
+          'lines': {'type': 'integer'},
+          'terminal_id': {'type': 'integer'},
+        },
+        ['session_id', 'text'],
+        _input,
+        (a) async {
+          final t = a['text'];
+          if (t is! String) throw McpToolException('`text` is required.');
+          return structured(await backend.terminalWrite(sid(a), t,
+              submit: a['submit'] == true,
+              waitMs: _optionalInt(a, 'wait_ms'),
+              lines: _optionalInt(a, 'lines', 60),
+              terminalId: _nullableInt(a, 'terminal_id')));
+        },
+      ),
+      _Tool(
+        'terminal_read',
+        'Read the last `lines` (default 60, at most 400) of your terminal '
+            'session\'s screen and scrollback as plain text.',
+        {
+          'session_id': _sessionIdProp,
+          'lines': {'type': 'integer'},
+          'terminal_id': {'type': 'integer'},
+        },
+        ['session_id'],
+        _readOnly,
+        (a) async => structured(await backend.terminalRead(sid(a),
+            lines: _optionalInt(a, 'lines', 60),
+            terminalId: _nullableInt(a, 'terminal_id'))),
       ),
       _Tool(
         'network_status',
@@ -802,7 +1030,8 @@ class McpDispatcher {
         {},
         [],
         _readOnly,
-        (a) async => structured({'profiles': await backend.listNetworkProfiles()}),
+        (a) async =>
+            structured({'profiles': await backend.listNetworkProfiles()}),
       ),
       _Tool(
         'apply_network_profile',
@@ -819,8 +1048,8 @@ class McpDispatcher {
         },
         ['name'],
         _safeWrite,
-        (a) async =>
-            structured(await backend.applyNetworkProfile(_requireString(a, 'name'))),
+        (a) async => structured(
+            await backend.applyNetworkProfile(_requireString(a, 'name'))),
       ),
       _Tool(
         'save_network_profile',
@@ -1056,8 +1285,11 @@ class _RpcError implements Exception {
   _RpcError(this.code, this.message);
 }
 
-int _optionalInt(Map<String, dynamic> args, String key) =>
-    args[key] == null ? 0 : _requireInt(args, key);
+int _optionalInt(Map<String, dynamic> args, String key, [int fallback = 0]) =>
+    args[key] == null ? fallback : _requireInt(args, key);
+
+int? _nullableInt(Map<String, dynamic> args, String key) =>
+    args[key] == null ? null : _requireInt(args, key);
 
 String? _optionalString(Map<String, dynamic> args, String key) {
   final v = args[key];

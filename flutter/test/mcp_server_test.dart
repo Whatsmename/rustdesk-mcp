@@ -37,6 +37,107 @@ final png1920x1080 = <int>[
 
 class _FakeBackend implements McpBackend {
   final calls = <String>[];
+
+  @override
+  Future<Map<String, dynamic>> networkStatus() async => {'active': 'public'};
+
+  @override
+  Future<List<Map<String, dynamic>>> listNetworkProfiles() async => [
+        {'name': 'public'}
+      ];
+
+  @override
+  Future<Map<String, dynamic>> applyNetworkProfile(String name) async =>
+      {'active': name};
+
+  @override
+  Future<Map<String, dynamic>> saveNetworkProfile(
+          String name, Map<String, dynamic> settings,
+          {bool remove = false}) async =>
+      {'name': name, 'removed': remove};
+
+  /// File transfer / terminal sessions; empty unless a test adds some.
+  List<Map<String, dynamic>> auxSessions = [];
+
+  @override
+  Future<List<Map<String, dynamic>>> listAuxSessions() async => auxSessions;
+
+  @override
+  Future<Map<String, dynamic>> openFileTransfer(String peerId) async {
+    calls.add('open_file_transfer $peerId');
+    return {
+      'kind': 'file_transfer',
+      'peer_id': peerId,
+      'session_id': 'f',
+      'ready': true,
+      'state': 'ready',
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> listFiles(String sessionId,
+      {required String side, String? path, bool showHidden = false}) async {
+    calls.add('list_files $sessionId $side ${path ?? ''}');
+    return {'side': side, 'entries': []};
+  }
+
+  @override
+  Future<Map<String, dynamic>> transferFile(String sessionId,
+      {required String direction,
+      required String path,
+      String? remoteDir,
+      String? localName,
+      bool overwrite = false,
+      bool includeHidden = false}) async {
+    calls.add('transfer_file $sessionId $direction $path ${remoteDir ?? ''} '
+        '$overwrite');
+    return {'job_id': 7};
+  }
+
+  @override
+  Future<Map<String, dynamic>> transferStatus(String sessionId,
+      {int? jobId, int waitMs = 0}) async {
+    calls.add('transfer_status $sessionId $jobId $waitMs');
+    return {'jobs': []};
+  }
+
+  @override
+  Future<Map<String, dynamic>> cancelTransfer(
+      String sessionId, int jobId) async {
+    calls.add('cancel_transfer $sessionId $jobId');
+    return {'cancelled': jobId};
+  }
+
+  @override
+  Future<Map<String, dynamic>> openTerminal(String peerId,
+      {bool elevated = false}) async {
+    calls.add('open_terminal $peerId $elevated');
+    return {
+      'kind': 'terminal',
+      'peer_id': peerId,
+      'session_id': 't',
+      'ready': false,
+      'state': elevated ? 'needs_admin_login' : 'ready',
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> terminalWrite(String sessionId, String text,
+      {bool submit = false,
+      int waitMs = 0,
+      int lines = 60,
+      int? terminalId}) async {
+    calls.add('terminal_write $sessionId ${jsonEncode(text)} $submit $waitMs');
+    return {'sent': text.length};
+  }
+
+  @override
+  Future<Map<String, dynamic>> terminalRead(String sessionId,
+      {int lines = 60, int? terminalId}) async {
+    calls.add('terminal_read $sessionId $lines');
+    return {'text': 'PS C:\\> '};
+  }
+
   List<int>? screenshotBytes;
 
   @override
@@ -224,6 +325,18 @@ void main() {
         'press_key',
         'remote_action',
         'disconnect',
+        'network_status',
+        'list_network_profiles',
+        'apply_network_profile',
+        'save_network_profile',
+        'open_file_transfer',
+        'list_files',
+        'transfer_file',
+        'transfer_status',
+        'cancel_transfer',
+        'open_terminal',
+        'terminal_write',
+        'terminal_read',
       });
       for (final t in r['result']['tools']) {
         expect(t['inputSchema']['type'], 'object');
@@ -784,6 +897,83 @@ void main() {
       } catch (e) {
         expect(e, anyOf(isA<SocketException>(), isA<HttpException>()));
       }
+    });
+  });
+
+  group('file transfer and terminal tools', () {
+    test('list_sessions tags remote desktop sessions and appends aux ones',
+        () async {
+      backend.auxSessions = [
+        {
+          'kind': 'terminal',
+          'peer_id': '123456789',
+          'session_id': 't',
+          'ready': true,
+          'state': 'ready',
+          'elevated': false,
+        }
+      ];
+      final r = await _rpc(dispatcher, _call('list_sessions', {}));
+      final sessions = r['result']['structuredContent']['sessions'] as List;
+      expect(sessions.first['kind'], 'remote_desktop');
+      expect(sessions.last['kind'], 'terminal');
+      expect(sessions.last['session_id'], 't');
+    });
+
+    test('open_terminal passes elevated and reports needs_admin_login',
+        () async {
+      final r = await _rpc(dispatcher,
+          _call('open_terminal', {'peer_id': '123', 'elevated': true}));
+      expect(r['result']['isError'], false);
+      expect(r['result']['structuredContent']['state'], 'needs_admin_login');
+      expect(backend.calls.last, 'open_terminal 123 true');
+    });
+
+    test('terminal_write forwards text, submit and wait', () async {
+      final r = await _rpc(
+          dispatcher,
+          _call('terminal_write', {
+            'session_id': 't',
+            'text': 'dir\u0003',
+            'submit': true,
+            'wait_ms': 500,
+          }));
+      expect(r['result']['isError'], false);
+      expect(backend.calls.last,
+          'terminal_write t ${jsonEncode('dir\u0003')} true 500');
+    });
+
+    test('transfer_file requires direction and path', () async {
+      final r = await _rpc(dispatcher,
+          _call('transfer_file', {'session_id': 'f', 'direction': 'upload'}));
+      expect(r['result']['isError'], true);
+    });
+
+    test('transfer_file forwards an upload', () async {
+      final r = await _rpc(
+          dispatcher,
+          _call('transfer_file', {
+            'session_id': 'f',
+            'direction': 'upload',
+            'path': 'report.txt',
+            'remote_dir': 'C:\\Temp',
+          }));
+      expect(r['result']['isError'], false);
+      expect(r['result']['structuredContent']['job_id'], 7);
+      expect(backend.calls.last,
+          'transfer_file f upload report.txt C:\\Temp false');
+    });
+
+    test('a non-integer job_id is a tool error, not a crash', () async {
+      final r = await _rpc(dispatcher,
+          _call('cancel_transfer', {'session_id': 'f', 'job_id': 'seven'}));
+      expect(r['result']['isError'], true);
+    });
+
+    test('terminal_read clamps nothing itself but forwards lines', () async {
+      await _rpc(
+          dispatcher, _call('terminal_read', {'session_id': 't', 'lines': 5}));
+      expect(backend.calls.last, 'terminal_read t 5');
     });
   });
 }

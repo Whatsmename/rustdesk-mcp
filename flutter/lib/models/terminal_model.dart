@@ -619,8 +619,15 @@ class TerminalModel with ChangeNotifier {
 
   void _handleTerminalError(Map<String, dynamic> evt) {
     final String message = evt['message'] ?? 'Unknown error';
+    mcpLastError = message;
     _writeToTerminal('\r\nTerminal error: $message\r\n');
   }
+
+  /// Last terminal error, reported to an MCP agent reading this terminal.
+  String? mcpLastError;
+
+  /// Sends MCP agent input as-is: no keyboard semantics, no Ctrl/Alt lock.
+  Future<void> mcpSend(String data) => _sendInputPayload(data);
 
   @override
   void dispose() {

@@ -10,6 +10,7 @@ import 'package:flutter_hbb/utils/multi_window_manager.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:uuid/uuid.dart';
 
+import 'mcp_aux_backend.dart';
 import 'mcp_dispatcher.dart';
 import 'mcp_input.dart';
 import 'mcp_utils.dart';
@@ -34,9 +35,15 @@ class RustDeskMcpBackend implements McpBackend {
   /// True grants initial control too; false denies, null means approval expired.
   final Future<bool?> Function(String peerId) approveConnect;
 
-  RustDeskMcpBackend({required this.approveConnect});
+  RustDeskMcpBackend(
+      {required this.approveConnect, required McpAuxApproval approveAux}) {
+    _aux = McpAuxSessions(approve: approveAux, stopped: () => _stopped);
+  }
 
   bool _stopped = false;
+
+  /// File transfer and terminal sessions opened by agents.
+  late final McpAuxSessions _aux;
 
   void _checkRunning() {
     if (_stopped) throw McpToolException('The MCP server has stopped.');
@@ -489,6 +496,7 @@ class RustDeskMcpBackend implements McpBackend {
   @override
   Future<Map<String, dynamic>> getSession(String sessionId,
       {int waitMs = 0}) async {
+    if (_aux.owns(sessionId)) return _aux.get(sessionId, waitMs: waitMs);
     if (waitMs <= 0) return _find(sessionId);
     await _find(sessionId);
     return _waitForSettled(sessionId,
@@ -833,6 +841,7 @@ class RustDeskMcpBackend implements McpBackend {
 
   @override
   Future<void> disconnect(String sessionId) async {
+    if (_aux.owns(sessionId)) return _aux.close(sessionId);
     final input = _inputFor(sessionId);
     if (input == null) throw McpToolException(mcpHumanControlMessage);
     final connectionId = _connectionId(sessionId);
@@ -888,7 +897,8 @@ class RustDeskMcpBackend implements McpBackend {
 
   @override
   Future<Map<String, dynamic>> networkStatus() async {
-    final rendezvous = await bind.mainGetOption(key: 'custom-rendezvous-server');
+    final rendezvous =
+        await bind.mainGetOption(key: 'custom-rendezvous-server');
     final relay = await bind.mainGetOption(key: 'relay-server');
     final key = await bind.mainGetOption(key: 'key');
     final relayOnly = await bind.mainGetOption(key: 'always-use-relay');
@@ -905,14 +915,17 @@ class RustDeskMcpBackend implements McpBackend {
   Future<List<Map<String, dynamic>>> listNetworkProfiles() async {
     final saved = _networkProfiles();
     return [
-      {'name': 'public', 'builtin': true, 'settings': const <String, dynamic>{}},
+      {
+        'name': 'public',
+        'builtin': true,
+        'settings': const <String, dynamic>{}
+      },
       ...saved.entries
           .where((e) => e.value is Map<String, dynamic>)
           .map((e) => {
                 'name': e.key,
                 'builtin': false,
-                'settings': _profileSettings(
-                    e.value as Map<String, dynamic>),
+                'settings': _profileSettings(e.value as Map<String, dynamic>),
               }),
     ];
   }
@@ -943,8 +956,8 @@ class RustDeskMcpBackend implements McpBackend {
   }
 
   @override
-  Future<Map<String, dynamic>> saveNetworkProfile(String name,
-      Map<String, dynamic> settings,
+  Future<Map<String, dynamic>> saveNetworkProfile(
+      String name, Map<String, dynamic> settings,
       {bool remove = false}) async {
     if (name == 'public') {
       throw McpToolException('`public` is built in and cannot be changed.');
@@ -969,11 +982,74 @@ class RustDeskMcpBackend implements McpBackend {
       }
       profiles[name] = {'settings': settings};
     }
-    await bind.mainSetLocalOption(key: _kProfilesOption, value: jsonEncode(profiles));
+    await bind.mainSetLocalOption(
+        key: _kProfilesOption, value: jsonEncode(profiles));
     return {
       'saved': name,
       'removed': remove,
       'profiles': profiles.keys.toList(),
     };
   }
+
+  // --- file transfer and terminal (mcp_aux_backend.dart) -------------------
+
+  @override
+  Future<List<Map<String, dynamic>>> listAuxSessions() => _aux.list();
+
+  @override
+  Future<Map<String, dynamic>> openFileTransfer(String peerId) {
+    _checkRunning();
+    return _aux.open('file_transfer', peerId);
+  }
+
+  @override
+  Future<Map<String, dynamic>> listFiles(String sessionId,
+          {required String side, String? path, bool showHidden = false}) =>
+      _aux.listFiles(sessionId, side: side, path: path, showHidden: showHidden);
+
+  @override
+  Future<Map<String, dynamic>> transferFile(String sessionId,
+          {required String direction,
+          required String path,
+          String? remoteDir,
+          String? localName,
+          bool overwrite = false,
+          bool includeHidden = false}) =>
+      _aux.transferFile(sessionId,
+          direction: direction,
+          path: path,
+          remoteDir: remoteDir,
+          localName: localName,
+          overwrite: overwrite,
+          includeHidden: includeHidden);
+
+  @override
+  Future<Map<String, dynamic>> transferStatus(String sessionId,
+          {int? jobId, int waitMs = 0}) =>
+      _aux.transferStatus(sessionId, jobId: jobId, waitMs: waitMs);
+
+  @override
+  Future<Map<String, dynamic>> cancelTransfer(String sessionId, int jobId) =>
+      _aux.cancelTransfer(sessionId, jobId);
+
+  @override
+  Future<Map<String, dynamic>> openTerminal(String peerId,
+      {bool elevated = false}) {
+    _checkRunning();
+    return _aux.open('terminal', peerId, elevated: elevated);
+  }
+
+  @override
+  Future<Map<String, dynamic>> terminalWrite(String sessionId, String text,
+          {bool submit = false,
+          int waitMs = 0,
+          int lines = 60,
+          int? terminalId}) =>
+      _aux.terminalWrite(sessionId, text,
+          submit: submit, waitMs: waitMs, lines: lines, terminalId: terminalId);
+
+  @override
+  Future<Map<String, dynamic>> terminalRead(String sessionId,
+          {int lines = 60, int? terminalId}) =>
+      _aux.terminalRead(sessionId, lines: lines, terminalId: terminalId);
 }

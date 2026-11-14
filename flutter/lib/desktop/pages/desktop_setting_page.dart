@@ -753,6 +753,19 @@ class _GeneralState extends State<_General> {
           kOptionMcpAutoApproveControl,
           isServer: false,
         ),
+        // Each session of these kinds is still approved when it opens.
+        _OptionCheckBox(
+          context,
+          'Allow agents to transfer files (via ~/$kMcpStagingDirName only)',
+          kOptionMcpAllowFileTransfer,
+          isServer: false,
+        ),
+        _OptionCheckBox(
+          context,
+          'Allow agents to open terminals (incl. administrator)',
+          kOptionMcpAllowTerminal,
+          isServer: false,
+        ),
         _McpConnectionInfo(),
       ],
     ]);
