@@ -743,7 +743,7 @@ class _GeneralState extends State<_General> {
       if (mainGetLocalBoolOptionSync(kOptionEnableMcpServer)) ...[
         _OptionCheckBox(
           context,
-          'Automatically approve new connections and initial agent control',
+          'Automatically approve new connections (desktop, terminal and file transfer)',
           kOptionMcpAutoApproveConnect,
           isServer: false,
         ),
@@ -753,7 +753,7 @@ class _GeneralState extends State<_General> {
           kOptionMcpAutoApproveControl,
           isServer: false,
         ),
-        // Each session of these kinds is still approved when it opens.
+        // Auto-initiation never enables either capability on its own.
         _OptionCheckBox(
           context,
           'Allow agents to transfer files (via ~/$kMcpStagingDirName only)',

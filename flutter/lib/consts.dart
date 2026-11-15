@@ -118,8 +118,8 @@ const String kOptionMcpServerToken = "mcp-server-token";
 // new connections without an explicit opt-in. Both allow-* options default off.
 const String kOptionMcpAutoApproveControl = "allow-mcp-auto-approve";
 const String kOptionMcpAutoApproveConnect = "allow-mcp-auto-approve-connect";
-// Off by default. Every MCP file transfer / terminal session is also approved
-// by the user when it opens; the auto-approve options above never apply.
+// Off by default. Enabling a kind permits requests, not automatic approval;
+// new-connection auto-approval must also be explicitly enabled to skip prompts.
 const String kOptionMcpAllowFileTransfer = "allow-mcp-file-transfer";
 const String kOptionMcpAllowTerminal = "allow-mcp-terminal";
 // Local side of MCP file transfers; nothing outside it is listed or sent.
