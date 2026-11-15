@@ -174,7 +174,13 @@ class FileModel {
     // If `skip == true`, it means to skip this file without showing dialog.
     // Because `resp` may be null after the user operation or the last remembered operation,
     // and we should distinguish them.
-    final resp = overrideConfirm ??
+    // An MCP job answers from the overwrite flag it was started with, ahead of
+    // anything the user remembered for their own jobs: true overwrites, false
+    // skips. No dialog is shown to the user for it.
+    final mcpPolicy = mcpOverwrite[id];
+    final resp = mcpPolicy != null
+        ? (mcpPolicy ? true : null)
+        : overrideConfirm ??
         (!skip
             ? await showFileConfirmDialog(translate("Overwrite"),
                 "${evt['read_path']}", true, evt['is_identical'] == "true")
@@ -214,6 +220,9 @@ class FileModel {
   }
 
   bool fileConfirmCheckboxRemember = false;
+
+  /// Conflict answer of each job an MCP agent started, by job id.
+  final Map<int, bool> mcpOverwrite = {};
 
   Future<bool?> showFileConfirmDialog(
       String title, String content, bool showCheckbox, bool isIdentical) async {

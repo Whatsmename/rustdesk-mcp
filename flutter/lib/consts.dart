@@ -82,6 +82,23 @@ const String kWindowEventMoveTabToNewWindow = "move_tab_to_new_window";
 const String kWindowEventGetCachedSessionData = "get_cached_session_data";
 const String kWindowEventOpenMonitorSession = "open_monitor_session";
 
+const String kWindowEventMcpListSessions = "mcp_list_sessions";
+const String kWindowEventMcpRefreshControl = "mcp_refresh_control";
+const String kWindowEventMcpRequestControl = "mcp_request_control";
+const String kWindowEventMcpAuthenticate = "mcp_authenticate";
+const String kWindowEventMcpClose = "mcp_close_session";
+const String kWindowEventMcpControlTakenOver = "mcp_control_taken_over";
+const String kWindowEventMcpStop = "mcp_stop";
+// File transfer and terminal windows (MCP-opened sessions only).
+const String kWindowEventMcpAuxList = "mcp_aux_list";
+const String kWindowEventMcpAuxClose = "mcp_aux_close";
+const String kWindowEventMcpFtList = "mcp_ft_list";
+const String kWindowEventMcpFtSend = "mcp_ft_send";
+const String kWindowEventMcpFtJobs = "mcp_ft_jobs";
+const String kWindowEventMcpFtCancel = "mcp_ft_cancel";
+const String kWindowEventMcpTermRead = "mcp_term_read";
+const String kWindowEventMcpTermWrite = "mcp_term_write";
+
 const String kOptionViewStyle = "view_style";
 const String kOptionScrollStyle = "scroll_style";
 const String kOptionEdgeScrollEdgeThickness = "edge-scroll-edge-thickness";
@@ -94,6 +111,19 @@ const String kOptionOpenInWindows = "allow-open-in-windows";
 const String kOptionForceAlwaysRelay = "force-always-relay";
 const String kOptionViewOnly = "view_only";
 const String kOptionEnableLanDiscovery = "enable-lan-discovery";
+const String kOptionEnableMcpServer = "allow-mcp-server";
+const String kOptionMcpServerPort = "mcp-server-port";
+const String kOptionMcpServerToken = "mcp-server-token";
+// Keep the existing key for control only; upgrading must not auto-approve
+// new connections without an explicit opt-in. Both allow-* options default off.
+const String kOptionMcpAutoApproveControl = "allow-mcp-auto-approve";
+const String kOptionMcpAutoApproveConnect = "allow-mcp-auto-approve-connect";
+// Off by default. Every MCP file transfer / terminal session is also approved
+// by the user when it opens; the auto-approve options above never apply.
+const String kOptionMcpAllowFileTransfer = "allow-mcp-file-transfer";
+const String kOptionMcpAllowTerminal = "allow-mcp-terminal";
+// Local side of MCP file transfers; nothing outside it is listed or sent.
+const String kMcpStagingDirName = "RustDesk-MCP";
 const String kOptionWhitelist = "whitelist";
 const String kOptionIdWhitelist = "id-whitelist";
 const String kOptionEnableAbr = "enable-abr";

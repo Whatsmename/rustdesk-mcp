@@ -18,6 +18,7 @@ import 'package:get/get.dart';
 import '../../models/platform_model.dart';
 import 'terminal_page.dart';
 import 'terminal_connection_manager.dart';
+import '../../mcp/mcp_aux_window.dart';
 import '../widgets/material_mod_popup_menu.dart' as mod_menu;
 import '../widgets/popup_menu.dart';
 import 'package:bot_toast/bot_toast.dart';
@@ -505,6 +506,14 @@ class _TerminalTabPageState extends State<TerminalTabPage> {
     HardwareKeyboard.instance.addHandler(_handleKeyEvent);
 
     rustDeskWinManager.setMethodHandler((call, fromWindowId) async {
+      // MCP calls carry terminal input; keep their arguments out of the log.
+      if (call.method.startsWith('mcp_')) {
+        return handleMcpTerminalWindowCall(
+            call.method,
+            call.arguments,
+            tabController.state.value.tabs.map((e) => e.key).toList(),
+            (key) => _closeTab(key));
+      }
       print(
           "[Remote Terminal] call ${call.method} with args ${call.arguments} from window $fromWindowId");
       if (call.method == kWindowEventNewTerminal) {
