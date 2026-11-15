@@ -74,7 +74,7 @@ class McpServerManager {
           // Release builds strip prints, so keep the failure on disk where the
           // Settings page and operators can find it.
           try {
-            final dir = Directory(bind.mainGetHomeDir());
+            final dir = Directory(await bind.mainGetHomeDir());
             final log = File('${dir.path}/mcp_server_error.log');
             final line =
                 '${DateTime.now().toIso8601String()} $e\n';
