@@ -17,8 +17,13 @@ class Binding extends Fake implements RustdeskImpl {
   late Aux aux;
   int logins = 0;
   int codes = 0;
+  final options = <String, String>{
+    kOptionMcpAllowTerminal: 'Y',
+    kOptionMcpAllowFileTransfer: 'Y',
+  };
   @override
-  String mainGetLocalOption({required String key, dynamic hint}) => 'Y';
+  String mainGetLocalOption({required String key, dynamic hint}) =>
+      options[key] ?? '';
   @override
   String sessionMcpConnectionId({required UuidValue sessionId, dynamic hint}) =>
       '';
@@ -145,7 +150,32 @@ void main() {
   });
 
   for (final kind in ['terminal', 'file_transfer']) {
+    test('auto-initiation opens enabled $kind without a local dialog', () async {
+      binding.options[kOptionMcpAutoApproveConnect] = 'Y';
+      final automatic = Aux(
+          approve: (_, __) async {
+            fail('Auto-initiation must not wait for a local approval dialog.');
+          },
+          stopped: () => false);
+      final result = await automatic.open(kind, '101763146');
+      expect(result['session_id'], sid);
+      expect(result['state'], 'needs_password');
+      expect(binding.logins, 0); // Remote authentication is still required.
+    });
+
+    test('auto-initiation cannot enable disabled $kind access', () async {
+      binding.options[kOptionMcpAutoApproveConnect] = 'Y';
+      binding.options[kind == 'terminal'
+          ? kOptionMcpAllowTerminal
+          : kOptionMcpAllowFileTransfer] = '';
+      await expectLater(
+          aux.open(kind, '101763146'), throwsA(isA<McpToolException>()));
+      expect(approvals, 0);
+      expect(aux.kind, isNull);
+    });
+
     test('approved $kind authenticates its exact auxiliary ID', () async {
+      binding.options[kOptionMcpAutoApproveControl] = 'Y';
       final opened = kind == 'terminal'
           ? await backend.openTerminal('101763146')
           : await backend.openFileTransfer('101763146');
@@ -169,6 +199,7 @@ void main() {
   });
 
   test('owned auxiliary 2FA does not trust the device', () async {
+    binding.options[kOptionMcpAutoApproveConnect] = 'Y';
     await backend.openTerminal('101763146');
     aux.state = 'needs_2fa';
     final result = await backend.authenticate(sid, twoFactorCode: 'test-code');
@@ -179,6 +210,7 @@ void main() {
 
   test('administrator account boundary is never submitted by authenticate',
       () async {
+    binding.options[kOptionMcpAutoApproveConnect] = 'Y';
     await backend.openTerminal('101763146');
     aux.state = 'needs_admin_login';
     await expectLater(
@@ -251,7 +283,10 @@ void main() {
 
   for (final kind in ['terminal', 'file_transfer']) {
     test('unowned $kind session cannot authenticate', () async {
-      aux.kind = kind; // Human-opened, never locally approved.
+      binding.options[kOptionMcpAutoApproveConnect] = 'Y';
+      aux.kind = kind; // Human-opened, never agent-owned.
+      await expectLater(aux.open(kind, '101763146'),
+          throwsA(isA<McpToolException>()));
       await expectLater(backend.authenticate(sid, password: 'test-password'),
           throwsA(isA<McpToolException>()));
       expect(binding.logins, 0);

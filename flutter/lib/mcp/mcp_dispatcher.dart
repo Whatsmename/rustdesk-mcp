@@ -856,8 +856,9 @@ class McpDispatcher {
       _Tool(
         'open_file_transfer',
         'Open a file transfer session to a peer. Off unless the user enabled '
-            'MCP file transfer, and the user approves every session. On this '
-            'computer, files can only come from or go to the staging folder '
+            'MCP file transfer. Each new session prompts for local approval '
+            'unless new-connection auto-approval is enabled. On this computer, '
+            'files can only come from or go to the staging folder '
             '(`staging_dir`, ~/RustDesk-MCP); local paths are relative to it. '
             'Returns the session; call again with the same peer_id while it '
             'is `opening`. If it `needs_password`, use authenticate or ask the '
@@ -954,8 +955,9 @@ class McpDispatcher {
       _Tool(
         'open_terminal',
         'Open a terminal (command shell) on a peer. Off unless the user '
-            'enabled MCP terminal access, and the user approves every '
-            'session. `elevated: true` opens an administrator terminal '
+            'enabled MCP terminal access. Each new session prompts for local '
+            'approval unless new-connection auto-approval is enabled. '
+            '`elevated: true` opens an administrator terminal '
             '(Windows peers only): the peer then asks for a Windows '
             'administrator account, which only the user may enter in the '
             'terminal window - the state is `needs_admin_login` until they '

@@ -47,8 +47,8 @@ class _AuxSession {
 /// File transfer and terminal sessions opened by MCP agents.
 ///
 /// An agent can only act on sessions it opened here; sessions the user opened
-/// are never listed or touched. Each kind is off until the user enables it,
-/// and every session is approved by the user when it opens.
+/// are never listed or touched. Each kind is off until the user enables it.
+/// Opening prompts for approval unless new-connection auto-approval is enabled.
 class McpAuxSessions {
   final McpAuxApproval approve;
   final bool Function() stopped;
@@ -260,12 +260,14 @@ class McpAuxSessions {
             ? 'an ADMINISTRATOR terminal session (the peer will ask you for '
                 'Windows administrator credentials in its window)'
             : 'a terminal session (a command shell on the remote computer)';
-    final allowed = await approve(peerId, what);
-    if (allowed == null) {
-      throw McpToolException('The request for $peerId timed out without an '
-          'answer from the user.');
+    if (!mainGetLocalBoolOptionSync(kOptionMcpAutoApproveConnect)) {
+      final allowed = await approve(peerId, what);
+      if (allowed == null) {
+        throw McpToolException('The request for $peerId timed out without an '
+            'answer from the user.');
+      }
+      if (!allowed) throw McpToolException('The user denied the request.');
     }
-    if (!allowed) throw McpToolException('The user denied the request.');
     if (stopped()) throw McpToolException('The MCP server has stopped.');
     // The user may have opened one while the prompt was up; that stays theirs.
     // A busy window could hide it, and the new session would then be mistaken
