@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/models/file_model.dart' show PathUtil;
@@ -10,6 +11,7 @@ import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/utils/download_paths.dart';
 import 'package:flutter_hbb/utils/multi_window_manager.dart';
 import 'package:path/path.dart' as p;
+import 'package:uuid/uuid.dart';
 
 import 'mcp_dispatcher.dart';
 import 'mcp_utils.dart';
@@ -60,11 +62,13 @@ class McpAuxSessions {
 
   // --- window plumbing -----------------------------------------------------
 
-  List<int> _windows(String kind) => kind == 'terminal'
+  @protected
+  List<int> windowIds(String kind) => kind == 'terminal'
       ? rustDeskWinManager.terminalWindows
       : rustDeskWinManager.fileTransferWindows;
 
-  Future<dynamic> _invoke(int windowId, String method, Object? args,
+  @protected
+  Future<dynamic> invokeWindow(int windowId, String method, Object? args,
       [Duration timeout = _kWindowCallTimeout]) async {
     try {
       return await DesktopMultiWindow.invokeMethod(
@@ -87,9 +91,9 @@ class McpAuxSessions {
       String kind) async {
     final out = <Map<String, dynamic>>[];
     var complete = true;
-    for (final w in _windows(kind)) {
+    for (final w in windowIds(kind)) {
       try {
-        final raw = await _invoke(w, kWindowEventMcpAuxList, null);
+        final raw = await invokeWindow(w, kWindowEventMcpAuxList, null);
         if (raw is! String) {
           complete = false;
           continue;
@@ -175,7 +179,7 @@ class McpAuxSessions {
   Future<Map<String, dynamic>> _call(
       int window, String method, Map<String, dynamic> args,
       [Duration timeout = _kWindowCallTimeout]) async {
-    final raw = await _invoke(window, method, args, timeout);
+    final raw = await invokeWindow(window, method, args, timeout);
     if (raw is! String) {
       throw McpToolException('The RustDesk window could not handle $method.');
     }
@@ -274,13 +278,7 @@ class McpAuxSessions {
     if (before.sessions.any((s) => s['peer_id'] == peerId)) {
       throw McpToolException('The user opened a session to $peerId meanwhile.');
     }
-    if (kind == 'terminal') {
-      // Read and cleared by the new session (session_add_sync).
-      if (elevated) setEnvTerminalAdmin();
-      await rustDeskWinManager.newTerminal(peerId);
-    } else {
-      await rustDeskWinManager.newFileTransfer(peerId);
-    }
+    await openWindow(kind, peerId, elevated);
     final until = DateTime.now().add(_kOpenTimeout);
     while (DateTime.now().isBefore(until)) {
       for (final s in await _all(kind)) {
@@ -293,6 +291,17 @@ class McpAuxSessions {
       await Future.delayed(const Duration(milliseconds: 250));
     }
     throw McpToolException('Timed out waiting for the window to open.');
+  }
+
+  @protected
+  Future<void> openWindow(String kind, String peerId, bool elevated) async {
+    if (kind == 'terminal') {
+      // Read and cleared by the new session (session_add_sync).
+      if (elevated) setEnvTerminalAdmin();
+      await rustDeskWinManager.newTerminal(peerId);
+    } else {
+      await rustDeskWinManager.newFileTransfer(peerId);
+    }
   }
 
   Future<Map<String, dynamic>> _settle(
@@ -313,6 +322,78 @@ class McpAuxSessions {
     final deadline = DateTime.now()
         .add(Duration(milliseconds: waitMs.clamp(0, _kMaxWaitMs)));
     return _settle(sessionId, deadline);
+  }
+
+  /// Auxiliary approval lives here, not in the desktop native input grant
+  /// map. Only a session opened after its explicit approval may authenticate.
+  Future<Map<String, dynamic>> authenticate(String sessionId,
+      {String? password, String? twoFactorCode}) async {
+    final s = await _session(sessionId);
+    void checkApproval() {
+      if (stopped() || !identical(_owned[sessionId], s.own)) {
+        throw McpToolException('The session approval is no longer active.');
+      }
+      final option = s.own.kind == 'terminal'
+          ? kOptionMcpAllowTerminal
+          : kOptionMcpAllowFileTransfer;
+      if (!mainGetLocalBoolOptionSync(option)) {
+        throw McpToolException(
+            'MCP access for this session type is turned off.');
+      }
+    }
+
+    checkApproval();
+    final state = s.state['state'];
+    final wantsPassword =
+        state == 'needs_password' || state == 'wrong_password';
+    if (!wantsPassword && state != 'needs_2fa') {
+      throw McpToolException(state == 'needs_admin_login'
+          ? 'Administrator credentials must be entered by the user in the '
+              'RustDesk terminal window.'
+          : 'The session is not waiting for credentials (state: $state).');
+    }
+    if (wantsPassword && password == null) {
+      throw McpToolException('This session needs a password.');
+    }
+    if (state == 'needs_2fa' && twoFactorCode == null) {
+      throw McpToolException('This session needs a two_factor_code.');
+    }
+    // No credentials cross window IPC (whose callers may log arguments).
+    // The target window independently checks the current auth state before
+    // dismissing the prompt and clearing its old needs_password/2FA verdict.
+    final reset = await invokeWindow(
+        s.window, kWindowEventMcpAuthenticate, {'session_id': sessionId});
+    checkApproval();
+    if (reset != true) {
+      throw McpToolException('The authentication prompt changed; try again.');
+    }
+    if (wantsPassword) {
+      await bind.sessionLogin(
+          sessionId: UuidValue(sessionId),
+          osUsername: '',
+          osPassword: '',
+          password: password!,
+          remember: false);
+    } else {
+      await bind.sessionSend2Fa(
+          sessionId: UuidValue(sessionId),
+          code: twoFactorCode!,
+          trustThisDevice: false);
+    }
+    checkApproval();
+    final result = await _settle(
+        sessionId, DateTime.now().add(const Duration(seconds: 20)));
+    checkApproval();
+    if (result['state'] == 'wrong_password') {
+      throw McpToolException(
+          'The password was rejected. ${result['next_step']}');
+    }
+    if (!wantsPassword &&
+        result['state'] == 'needs_2fa' &&
+        result['message'] != null) {
+      throw McpToolException('${result['message']} ${result['next_step']}');
+    }
+    return result;
   }
 
   Future<void> close(String sessionId) async {

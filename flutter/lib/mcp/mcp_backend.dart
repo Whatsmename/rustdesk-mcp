@@ -45,6 +45,9 @@ class RustDeskMcpBackend implements McpBackend {
   /// File transfer and terminal sessions opened by agents.
   late final McpAuxSessions _aux;
 
+  @protected
+  McpAuxSessions get auxiliarySessions => _aux;
+
   void _checkRunning() {
     if (_stopped) throw McpToolException('The MCP server has stopped.');
   }
@@ -381,6 +384,14 @@ class RustDeskMcpBackend implements McpBackend {
 
   @override
   Future<String> requestControl(String sessionId) async {
+    _checkRunning();
+    if (auxiliarySessions.owns(sessionId)) {
+      await auxiliarySessions.get(sessionId);
+      throw McpToolException(
+          'This auxiliary session is already locally approved. '
+          'Desktop request_control does not apply; use authenticate if the '
+          'peer requests a password or two-factor code.');
+    }
     await _find(sessionId);
     try {
       await _requestControl(sessionId,
@@ -496,7 +507,9 @@ class RustDeskMcpBackend implements McpBackend {
   @override
   Future<Map<String, dynamic>> getSession(String sessionId,
       {int waitMs = 0}) async {
-    if (_aux.owns(sessionId)) return _aux.get(sessionId, waitMs: waitMs);
+    if (auxiliarySessions.owns(sessionId)) {
+      return auxiliarySessions.get(sessionId, waitMs: waitMs);
+    }
     if (waitMs <= 0) return _find(sessionId);
     await _find(sessionId);
     return _waitForSettled(sessionId,
@@ -506,6 +519,11 @@ class RustDeskMcpBackend implements McpBackend {
   @override
   Future<Map<String, dynamic>> authenticate(String sessionId,
       {String? password, String? twoFactorCode}) async {
+    _checkRunning();
+    if (auxiliarySessions.owns(sessionId)) {
+      return auxiliarySessions.authenticate(sessionId,
+          password: password, twoFactorCode: twoFactorCode);
+    }
     final input = _inputFor(sessionId);
     if (input == null) throw McpToolException(mcpHumanControlMessage);
     _checkGrant(sessionId, input);
@@ -841,7 +859,9 @@ class RustDeskMcpBackend implements McpBackend {
 
   @override
   Future<void> disconnect(String sessionId) async {
-    if (_aux.owns(sessionId)) return _aux.close(sessionId);
+    if (auxiliarySessions.owns(sessionId)) {
+      return auxiliarySessions.close(sessionId);
+    }
     final input = _inputFor(sessionId);
     if (input == null) throw McpToolException(mcpHumanControlMessage);
     final connectionId = _connectionId(sessionId);
@@ -994,18 +1014,20 @@ class RustDeskMcpBackend implements McpBackend {
   // --- file transfer and terminal (mcp_aux_backend.dart) -------------------
 
   @override
-  Future<List<Map<String, dynamic>>> listAuxSessions() => _aux.list();
+  Future<List<Map<String, dynamic>>> listAuxSessions() =>
+      auxiliarySessions.list();
 
   @override
   Future<Map<String, dynamic>> openFileTransfer(String peerId) {
     _checkRunning();
-    return _aux.open('file_transfer', peerId);
+    return auxiliarySessions.open('file_transfer', peerId);
   }
 
   @override
   Future<Map<String, dynamic>> listFiles(String sessionId,
           {required String side, String? path, bool showHidden = false}) =>
-      _aux.listFiles(sessionId, side: side, path: path, showHidden: showHidden);
+      auxiliarySessions.listFiles(sessionId,
+          side: side, path: path, showHidden: showHidden);
 
   @override
   Future<Map<String, dynamic>> transferFile(String sessionId,
@@ -1015,7 +1037,7 @@ class RustDeskMcpBackend implements McpBackend {
           String? localName,
           bool overwrite = false,
           bool includeHidden = false}) =>
-      _aux.transferFile(sessionId,
+      auxiliarySessions.transferFile(sessionId,
           direction: direction,
           path: path,
           remoteDir: remoteDir,
@@ -1026,17 +1048,17 @@ class RustDeskMcpBackend implements McpBackend {
   @override
   Future<Map<String, dynamic>> transferStatus(String sessionId,
           {int? jobId, int waitMs = 0}) =>
-      _aux.transferStatus(sessionId, jobId: jobId, waitMs: waitMs);
+      auxiliarySessions.transferStatus(sessionId, jobId: jobId, waitMs: waitMs);
 
   @override
   Future<Map<String, dynamic>> cancelTransfer(String sessionId, int jobId) =>
-      _aux.cancelTransfer(sessionId, jobId);
+      auxiliarySessions.cancelTransfer(sessionId, jobId);
 
   @override
   Future<Map<String, dynamic>> openTerminal(String peerId,
       {bool elevated = false}) {
     _checkRunning();
-    return _aux.open('terminal', peerId, elevated: elevated);
+    return auxiliarySessions.open('terminal', peerId, elevated: elevated);
   }
 
   @override
@@ -1045,11 +1067,12 @@ class RustDeskMcpBackend implements McpBackend {
           int waitMs = 0,
           int lines = 60,
           int? terminalId}) =>
-      _aux.terminalWrite(sessionId, text,
+      auxiliarySessions.terminalWrite(sessionId, text,
           submit: submit, waitMs: waitMs, lines: lines, terminalId: terminalId);
 
   @override
   Future<Map<String, dynamic>> terminalRead(String sessionId,
           {int lines = 60, int? terminalId}) =>
-      _aux.terminalRead(sessionId, lines: lines, terminalId: terminalId);
+      auxiliarySessions.terminalRead(sessionId,
+          lines: lines, terminalId: terminalId);
 }

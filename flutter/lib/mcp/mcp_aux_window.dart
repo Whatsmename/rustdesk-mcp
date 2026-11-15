@@ -53,6 +53,18 @@ Future<String> _guard(Future<Object?> Function() body) async {
   }
 }
 
+/// Only reset a normal peer-password or 2FA prompt. In particular this must
+/// never dismiss or submit the Windows administrator account dialog.
+bool prepareMcpAuxAuthentication(FFI ffi) {
+  final state = _state(ffi)['state'];
+  if (state != 'needs_password' &&
+      state != 'wrong_password' &&
+      state != 'needs_2fa') return false;
+  ffi.dialogManager.dismissAll();
+  ffi.ffiModel.mcpLastMsgBox = null;
+  return true;
+}
+
 // ---------------------------------------------------------------------------
 // File transfer window
 // ---------------------------------------------------------------------------
@@ -73,6 +85,8 @@ Future<dynamic> handleMcpFileWindowCall(String method, dynamic arguments,
   }
 
   switch (method) {
+    case kWindowEventMcpAuthenticate:
+      return prepareMcpAuxAuthentication(entryOf(_args(arguments)).value);
     case kWindowEventMcpAuxList:
       return jsonEncode([
         for (final e in sessions.entries)
@@ -265,6 +279,8 @@ Future<dynamic> handleMcpTerminalWindowCall(String method, dynamic arguments,
   }
 
   switch (method) {
+    case kWindowEventMcpAuthenticate:
+      return prepareMcpAuxAuthentication(tabOf(_args(arguments)).ffi);
     case kWindowEventMcpAuxList:
       return jsonEncode([
         for (final t in tabs)

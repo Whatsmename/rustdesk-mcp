@@ -429,8 +429,11 @@ class McpDispatcher {
       _Tool(
         'authenticate',
         'Submit a password or two-factor code to a session whose state is '
-            '`needs_password`, `wrong_password` or `needs_2fa`. Needs agent '
-            'control. Credentials are used once and never saved. Prefer asking '
+            '`needs_password`, `wrong_password` or `needs_2fa`. Remote desktop '
+            'requires agent control; auxiliary terminal/file-transfer sessions '
+            'require their existing local per-session approval, not request_control. '
+            'Never supplies administrator account credentials. '
+            'Credentials are used once and never saved. Prefer asking '
             'the user to type secrets in the RustDesk window.',
         {
           'session_id': _sessionIdProp,
@@ -857,8 +860,8 @@ class McpDispatcher {
             'computer, files can only come from or go to the staging folder '
             '(`staging_dir`, ~/RustDesk-MCP); local paths are relative to it. '
             'Returns the session; call again with the same peer_id while it '
-            'is `opening`. If it `needs_password`, ask the user to type it in '
-            'the file transfer window.',
+            'is `opening`. If it `needs_password`, use authenticate or ask the '
+            'user to type it in the file transfer window.',
         {'peer_id': _peerIdProp},
         ['peer_id'],
         _safeWrite,
