@@ -51,6 +51,17 @@ class McpServerManager {
     await _run(_sync);
   }
 
+  /// Startup sync can fail on transient conditions (config and plugin channels
+  /// settle after `runApp`). Retry until the server is up, so a boot with MCP
+  /// enabled converges without requiring anyone to open the settings page.
+  Future<void> syncUntilRunning() async {
+    for (var i = 0; i < 30; i++) {
+      await sync();
+      if (running || lastError == null) return;
+      await Future.delayed(const Duration(seconds: 2));
+    }
+  }
+
   Future<String?> _run(Future<void> Function() operation) =>
       _operations.run(() async {
         try {

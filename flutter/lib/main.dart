@@ -144,7 +144,7 @@ void runMainApp(bool startService) async {
   gFFI.userModel.refreshCurrentUser();
   runApp(App());
   if (isDesktop) {
-    McpServerManager.instance.sync();
+    McpServerManager.instance.syncUntilRunning();
   }
 
   bool? alwaysOnTop;
