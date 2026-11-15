@@ -1053,6 +1053,17 @@ fn try_start_server_(desktop: Option<&Desktop>) -> ResultType<Option<Child>> {
             if !desktop.dbus.is_empty() {
                 envs.push(("DBUS_SESSION_BUS_ADDRESS", desktop.dbus.clone()));
             }
+            // When we run from inside an AppImage, the runtime's own env tells the
+            // spawned client which mode it is in (FUSE mount vs extract-and-run).
+            // Without these the respawned tray re-mounts FUSE from a daemonized
+            // context, which hangs on runtime4; extract-and-run avoids FUSE.
+            for key in ["APPIMAGE_EXTRACT_AND_RUN", "APPIMAGE", "APPDIR", "ARCH"] {
+                if let Ok(v) = std::env::var(key) {
+                    if !v.is_empty() {
+                        envs.push((key, v));
+                    }
+                }
+            }
             if let Ok(forced_display_server) =
                 std::env::var("RUSTDESK_FORCED_DISPLAY_SERVER")
             {
