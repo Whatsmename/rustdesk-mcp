@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common.dart';
@@ -70,6 +71,15 @@ class McpServerManager {
         } catch (e) {
           lastError = '$e';
           debugPrint('Failed to update MCP server: $e');
+          // Release builds strip prints, so keep the failure on disk where the
+          // Settings page and operators can find it.
+          try {
+            final dir = Directory(bind.mainHomeDir());
+            final log = File('${dir.path}/mcp_server_error.log');
+            final line =
+                '${DateTime.now().toIso8601String()} $e\n';
+            log.writeAsStringSync(line, mode: FileMode.append);
+          } catch (_) {}
         }
         return lastError;
       });
